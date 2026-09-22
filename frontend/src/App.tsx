@@ -16,7 +16,7 @@ export default function App() {
   const [voices, setVoices] = useState<Record<string, string>>({});
   const [tuning, setTuning] = useState<Tuning>({
     voice: 'Sulafat',
-    silenceDurationMs: 1500,
+    silenceDurationMs: 5000,
     endOfSpeechSensitivity: 'LOW',
   });
   const [phase, setPhase] = useState<Phase>('idle');
@@ -133,15 +133,15 @@ export default function App() {
           <input
             type="range"
             min={200}
-            max={4000}
+            max={8000}
             step={100}
             value={tuning.silenceDurationMs}
             disabled={live || busy}
             onChange={(e) => setTuning({ ...tuning, silenceDurationMs: Number(e.target.value) })}
           />
           <small>
-            Default is 800 ms. Raise it until the interviewer stops talking over a pause for
-            thought; lower it if replies feel sluggish.
+            The model's own default is 800 ms. Measured here: 3500 ms still cuts into a 2.5 s
+            pause, 6000 ms sits through 4 s. Budget roughly double the pause you want tolerated.
           </small>
         </label>
 

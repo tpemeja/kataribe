@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api", tags=["sessions"])
 
 class SessionRequest(BaseModel):
     voice: str = "Sulafat"
-    silence_duration_ms: int = Field(default=1500, ge=200, le=4000)
+    silence_duration_ms: int = Field(default=5000, ge=200, le=8000)
     end_of_speech_sensitivity: Literal["LOW", "HIGH"] = "LOW"
 
 

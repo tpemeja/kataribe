@@ -37,7 +37,10 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 asyncio_mode = "auto"
+addopts = "-m 'not live'"
+markers = ["live: streams real audio at the Gemini Live API; run with `make eval`"]
 
 [tool.mypy]
 python_version = "3.13"

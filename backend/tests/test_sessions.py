@@ -27,7 +27,7 @@ def test_create_session_rejects_unknown_voice() -> None:
     assert response.status_code == 422
 
 
-@pytest.mark.parametrize("silence_ms", [199, 4001])
+@pytest.mark.parametrize("silence_ms", [199, 8001])
 def test_create_session_rejects_silence_outside_tunable_range(silence_ms: int) -> None:
     response = client_with(Settings(gemini_api_key="test-key")).post(
         "/api/sessions", json={"silence_duration_ms": silence_ms}

@@ -31,7 +31,11 @@ END_SENSITIVITY = {
 @dataclass(frozen=True)
 class InterviewTuning:
     voice: str = "Sulafat"
-    silence_duration_ms: int = 1500
+    # Measured: at 3500ms the interviewer cut into a 2.5s pause for thought, and
+    # at 6000ms it sat through 4s. The gap the model sees is longer than the
+    # pause itself, so tolerating an N second silence needs roughly 2N. Erring
+    # towards waiting is the right error for someone recalling a memory.
+    silence_duration_ms: int = 5000
     end_of_speech_sensitivity: str = "LOW"
 
 

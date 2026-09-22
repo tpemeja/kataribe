@@ -51,7 +51,8 @@ Requires [uv](https://docs.astral.sh/uv/), Node 22+, and pnpm.
 ```bash
 make install     # backend + frontend dependencies
 make dev         # API on :8000, web on :5173
-make check       # lint, types, and tests for both halves
+make check       # lint, types and offline tests — fast, no network
+make eval        # streams real Japanese audio at the Live API — slow, costs quota
 ```
 
 Set your Gemini API key before running a conversation:
@@ -59,6 +60,21 @@ Set your Gemini API key before running a conversation:
 ```bash
 cp backend/.env.example backend/.env   # then fill in KATARIBE_GEMINI_API_KEY
 ```
+
+## Testing
+
+`make check` is offline and runs on every push: config shape, endpoint validation, resampler maths.
+
+`make eval` is the one that matters. It synthesizes Japanese speech, streams it at the Live API in real time through the same ephemeral-token path the browser uses, and checks what came back:
+
+- the transcript matches what was said, names and places included
+- the interviewer waits through a pause for thought, and cuts in when the patience setting is lowered
+- the reply is Japanese, asks one thing, and follows the prompt's rules — graded partly by rules, partly by a model judging against the prompt itself
+- the whole loop works in a real browser, with the microphone replaced by the sample
+
+It runs on demand and nightly rather than on every push, because it runs in real time and costs quota. Nightly matters: the bugs that have actually bitten this project were configs that passed every offline check and died on a live socket.
+
+Synthesized speech is clean and evenly paced, so it proves correctness rather than robustness. Drop a real session recording into `backend/tests/live/recordings/` and the same harness will replay it.
 
 ## Project status
 

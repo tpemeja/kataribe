@@ -92,7 +92,16 @@ Pick a voice, set the pause slider, press **Start conversation**. Changing a tun
 
 What the tester is judging — a native Japanese speaker, not necessarily elderly:
 
-1. **Does it interrupt?** Pause mid-sentence for two or three seconds, as if retrieving a memory. Raise the slider until the interviewer waits. That number is the main output of this test.
+1. **Does it interrupt?** Pause mid-sentence for two or three seconds, as if retrieving a memory. Raise the slider until the interviewer waits. That number is the main output of this test. Measured against synthesized speech, for a starting point:
+
+   | Patience | Pause | Result |
+   | --- | --- | --- |
+   | 3500 ms | 1.5 s | waited |
+   | 3500 ms | 2.5 s | **cut in** |
+   | 6000 ms | 2.5 s | waited |
+   | 6000 ms | 4.0 s | waited |
+
+   The gap the model sees is longer than the pause itself, so budget roughly double. The default is now 5000 ms and the slider reaches 8000 ms.
 2. **Does it stay in Japanese?** It should never drift to English, even after a long silence.
 3. **Is the transcription good enough to build stories from?** Names and place names especially — those become the timeline in slice 3.
 4. **Does the interviewer behave?** One question at a time, short turns, follows a change of subject, backs off when told to, closes warmly with a topic for next time.
@@ -110,6 +119,12 @@ Download the recording afterwards — senior on the left channel, interviewer on
 - [ ] The recording downloads and plays back as a conversation
 
 Write the slider value and the voice into the defaults once they are known: `InterviewTuning` in `backend/src/kataribe/gemini.py`.
+
+### What `make eval` already checks for you
+
+Before spending anyone's time, `make eval` streams synthesized Japanese at the real API and asserts the transcript is accurate, the interviewer waits through a pause, cuts in when patience is lowered, replies in Japanese asking one thing, backs off when a topic is refused, and that the whole loop works in a real browser.
+
+It leaves exactly one thing it cannot judge, which is the point of the human session: **whether the Japanese is good.** A native speaker has not yet reviewed `interviewer_ja.md`, and one known issue is already marked `xfail` — the interviewer sometimes recaps what it heard before asking, which its own prompt forbids. Whether that reads as natural aizuchi or as presumptuous is a call only a native speaker can make.
 
 ## Open questions
 

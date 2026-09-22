@@ -21,5 +21,13 @@ dist/
 var/
 backend/var/
 
+# Generated fixture audio
+backend/tests/live/.audio-cache/
+
 # macOS
 .DS_Store
+
+# Playwright
+frontend/e2e/.audio-cache/
+frontend/playwright-report/
+frontend/test-results/
