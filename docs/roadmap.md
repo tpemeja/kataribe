@@ -12,6 +12,10 @@ See [plan.md](plan.md) for the product thinking behind this.
 | Storage | SQLite + local disk, behind a storage port | Zero cloud setup, fast tests, works offline. Firestore and Cloud Storage adapters land when we deploy. |
 | Family loop | Family can suggest questions | Relatives submit a question, the AI weaves it into the next session, the answer comes back to them. This is the demo moment that separates us from a memoir app. |
 | Repo layout | `backend/` (FastAPI, uv) + `frontend/` (Vite, React, TS) | One Vite app serves kiosk, family view and dev view on separate routes. |
+| VAD patience | Tunable in the console, not hardcoded | Default 800 ms of silence ends a turn — far too short for someone retrieving a sixty-year-old memory. The right number is an empirical question about real speech, so we find it with a real speaker and bake in what wins. |
+| Interviewer prompt | Full first draft, Japanese source with an English gloss | A test session with a toy prompt tells us nothing about whether the interview *feels* right. The Japanese file ships; the English one exists so the team can review changes and the dev view can show them. |
+| Session recording | Stereo WAV built in the browser | Senior left, AI right, aligned on a shared timeline. Without it the first real session is unreviewable after the fact. |
+| Token security | Config locked server-side into the ephemeral token | The interviewer persona is the product; the browser gets a token that cannot rewrite it. Tuning values are requested by the client but validated and locked by the backend. |
 
 ## Demo must-haves
 
@@ -50,13 +54,32 @@ Prototype deadline **2026-10-18**. A real senior tests from week 2.
 ## Status
 
 - [x] **0 — Walking skeleton**
-- [ ] 1 — It talks
+- [~] **1 — It talks** — built; waiting on a live test with a Japanese speaker
+
 - [ ] 2 — It remembers the session
 - [ ] 3 — It has a brain
 - [ ] 4 — It notices you
 - [ ] 5 — It asks permission
 - [ ] 6 — The family asks back
 - [ ] 7 — Ready to judge
+
+## Running the week-1 test
+
+```bash
+make dev          # API on :8000, console on :5173
+```
+
+Open the console, pick a voice, set the pause slider, and press **Start conversation**. Changing a tuning value starts a fresh session, because the values are locked into the token when it is minted.
+
+What the tester is judging — a native Japanese speaker, not necessarily elderly:
+
+1. **Does it interrupt?** Pause mid-sentence for two or three seconds, as if retrieving a memory. Raise the slider until the interviewer waits. That number is the main output of this test.
+2. **Does it stay in Japanese?** It should never drift to English, even after a long silence.
+3. **Is the transcription good enough to build stories from?** Names and place names especially — those become the timeline in slice 3.
+4. **Does the interviewer behave?** One question at a time, short turns, follows a change of subject, backs off when told to, closes warmly with a topic for next time.
+5. **Which voice?** Seven are shortlisted. Pick by ear.
+
+Download the recording afterwards — senior on the left channel, interviewer on the right.
 
 ## Open questions
 

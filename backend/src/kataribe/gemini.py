@@ -1,0 +1,95 @@
+import datetime
+from dataclasses import dataclass
+
+from google import genai
+from google.genai import types
+
+from kataribe.config import Settings
+from kataribe.prompts import interviewer_instruction
+
+TOKEN_LIFETIME = datetime.timedelta(minutes=30)
+NEW_SESSION_WINDOW = datetime.timedelta(minutes=2)
+
+# Shortlisted from the prebuilt TTS voices for an elderly listener. A native
+# speaker picks the final one by ear during the week-1 test.
+VOICES: dict[str, str] = {
+    "Sulafat": "warm",
+    "Vindemiatrix": "gentle",
+    "Achird": "friendly",
+    "Gacrux": "mature",
+    "Callirrhoe": "easy-going",
+    "Despina": "smooth",
+    "Kore": "firm",
+}
+
+END_SENSITIVITY = {
+    "LOW": types.EndSensitivity.END_SENSITIVITY_LOW,
+    "HIGH": types.EndSensitivity.END_SENSITIVITY_HIGH,
+}
+
+
+@dataclass(frozen=True)
+class InterviewTuning:
+    voice: str = "Sulafat"
+    silence_duration_ms: int = 1500
+    end_of_speech_sensitivity: str = "LOW"
+
+
+@dataclass(frozen=True)
+class SessionCredentials:
+    token: str
+    model: str
+    expires_at: datetime.datetime
+
+
+def build_live_config(tuning: InterviewTuning) -> types.LiveConnectConfig:
+    return types.LiveConnectConfig(
+        response_modalities=[types.Modality.AUDIO],
+        system_instruction=interviewer_instruction(),
+        speech_config=types.SpeechConfig(
+            language_code="ja-JP",
+            voice_config=types.VoiceConfig(
+                prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=tuning.voice)
+            ),
+        ),
+        # word_timestamp gives us the audio offsets that story quotes link back to.
+        input_audio_transcription=types.AudioTranscriptionConfig(
+            language_codes=["ja-JP"], word_timestamp=True
+        ),
+        output_audio_transcription=types.AudioTranscriptionConfig(language_codes=["ja-JP"]),
+        realtime_input_config=types.RealtimeInputConfig(
+            automatic_activity_detection=types.AutomaticActivityDetection(
+                silence_duration_ms=tuning.silence_duration_ms,
+                end_of_speech_sensitivity=END_SENSITIVITY[tuning.end_of_speech_sensitivity],
+            )
+        ),
+        enable_affective_dialog=True,
+        context_window_compression=types.ContextWindowCompressionConfig(
+            sliding_window=types.SlidingWindow()
+        ),
+    )
+
+
+def mint_session_credentials(settings: Settings, tuning: InterviewTuning) -> SessionCredentials:
+    client = genai.Client(api_key=settings.gemini_api_key)
+    now = datetime.datetime.now(tz=datetime.UTC)
+    expires_at = now + TOKEN_LIFETIME
+
+    token = client.auth_tokens.create(
+        config=types.CreateAuthTokenConfig(
+            uses=1,
+            expire_time=expires_at,
+            new_session_expire_time=now + NEW_SESSION_WINDOW,
+            live_connect_constraints=types.LiveConnectConstraints(
+                model=settings.live_model,
+                config=build_live_config(tuning),
+            ),
+            # Empty list locks exactly the fields set above and nothing more.
+            lock_additional_fields=[],
+        )
+    )
+
+    if not token.name:
+        raise RuntimeError("Gemini returned an auth token without a name")
+
+    return SessionCredentials(token=token.name, model=settings.live_model, expires_at=expires_at)

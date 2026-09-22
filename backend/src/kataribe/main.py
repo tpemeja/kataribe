@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from kataribe import __version__
+from kataribe.api import sessions
 from kataribe.config import get_settings
 
 
@@ -20,6 +21,8 @@ def create_app() -> FastAPI:
     @app.get("/api/health")
     def health() -> dict[str, str]:
         return {"status": "ok", "version": __version__}
+
+    app.include_router(sessions.router)
 
     return app
 
