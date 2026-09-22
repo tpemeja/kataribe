@@ -74,6 +74,10 @@ cp backend/.env.example backend/.env   # then fill in KATARIBE_GEMINI_API_KEY
 
 It runs on demand and nightly rather than on every push, because it runs in real time and costs quota. Nightly matters: the bugs that have actually bitten this project were configs that passed every offline check and died on a live socket.
 
+`make spar` goes further and puts the interviewer in a live conversation with an AI playing the person being interviewed — three personas, each written to press a different rule in the interviewer's prompt. Both sides are real audio, so pauses and turn-taking are genuine rather than scripted.
+
+Note that the judge and the personas both consume API quota; the free tier's daily cap is low enough that a few full runs will exhaust it.
+
 Synthesized speech is clean and evenly paced, so it proves correctness rather than robustness. Drop a real session recording into `backend/tests/live/recordings/` and the same harness will replay it.
 
 ## Project status

@@ -1,4 +1,4 @@
-.PHONY: install dev dev-api dev-web check check-api check-web eval eval-api eval-browser fmt
+.PHONY: install dev dev-api dev-web check check-api check-web eval eval-api eval-browser spar fmt
 
 install:
 	cd backend && uv sync
@@ -29,6 +29,14 @@ eval-api:
 
 eval-browser:
 	cd frontend && pnpm test:e2e
+
+# Interviewer versus a simulated interviewee, on live audio both ways.
+# PERSONA=haru|shigeru|kimiko  PATIENCE=5000  SECONDS=75
+spar:
+	cd backend && uv run python spar.py \
+		--persona $(or $(PERSONA),haru) \
+		--seconds $(or $(SECONDS),75) \
+		$(if $(PATIENCE),--patience $(PATIENCE),)
 
 fmt:
 	cd backend && uv run ruff format . && uv run ruff check --fix .

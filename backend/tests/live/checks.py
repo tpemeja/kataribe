@@ -8,6 +8,7 @@ import re
 import time
 from difflib import SequenceMatcher
 
+import pytest
 from google import genai
 from google.genai import errors, types
 from pydantic import BaseModel
@@ -64,6 +65,15 @@ def judge(
         except errors.ServerError as error:
             last = error
             time.sleep(2**attempt)
+        except errors.ClientError as error:
+            if "RESOURCE_EXHAUSTED" not in str(error):
+                raise
+            # A per-minute cap is worth waiting out; a daily one is not, and it
+            # is a billing fact rather than anything wrong with the interviewer.
+            if "PerDay" in str(error):
+                pytest.skip(f"Judge quota for {settings.text_model} is spent for today")
+            last = error
+            time.sleep(2**attempt * 15)
     raise AssertionError(f"Judge unreachable after {attempts} attempts: {last}")
 
 

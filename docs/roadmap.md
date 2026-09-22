@@ -128,6 +128,28 @@ A recording worth keeping belongs in `backend/tests/live/recordings/`, where `ma
 
 Write the slider value and the voice into the defaults once they are known: `InterviewTuning` in `backend/src/kataribe/gemini.py`.
 
+### Sparring with a simulated interviewee
+
+`make spar` puts the interviewer in a live conversation with an AI playing the person being interviewed, so timing can be worked on without asking anyone to sit down. Both sides are real audio, so pauses, barge-in and turn-taking are genuine.
+
+```bash
+make spar                                    # 田中ハル, the default
+make spar PERSONA=shigeru SECONDS=90         # a longer session
+make spar PERSONA=kimiko PATIENCE=2500       # sweep the slider
+```
+
+Three personas, each pressing a different rule:
+
+| Persona | Exercises |
+| --- | --- |
+| `haru` | Pauses two or three seconds mid-memory — the interviewer must not fill them |
+| `shigeru` | Refuses to discuss the war — the interviewer must drop it |
+| `kimiko` | Drifts to another subject — the interviewer must follow rather than steer back |
+
+Each prints who spoke when, flags any moment the interviewer talked over the other side, and saves a stereo recording under `backend/var/spar/`. Their biographies are fixed, so once stories are being extracted the extraction can be graded against facts we already know.
+
+The interviewee's socket tends to drop on keepalive around 70 seconds. Once a real exchange has happened that is reported as an ending rather than a failure.
+
 ### What `make eval` already checks for you
 
 Before spending anyone's time, `make eval` streams synthesized Japanese at the real API and asserts the transcript is accurate, the interviewer waits through a pause, cuts in when patience is lowered, replies in Japanese asking one thing, backs off when a topic is refused, and that the whole loop works in a real browser.
