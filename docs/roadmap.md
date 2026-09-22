@@ -159,7 +159,7 @@ The cause was ours. The SDK hands the Python websockets library its default 20 s
 Two things follow:
 
 - Harness clients are built through `tests/live/connection.py`, which turns the ping timeout off.
-- The browser does its own keepalive and exposes no such setting, so the product path was never affected by this particular cause.
+- The browser does its own keepalive and exposes no such setting, so the product path was never affected by this particular cause. Confirmed rather than assumed: a browser session ran a full six minutes with 34 transcript entries and no drop. `pnpm test:endurance` keeps it that way, nightly.
 
 Session resumption was also verified to work — `SessionResumptionConfig`, a handle on every `session_resumption_update`, and a reconnect that carries the conversation across. It is not needed for this cause, but it is the documented answer for a genuine server-side drop and the mechanism is proven should a long session need it.
 

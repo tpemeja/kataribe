@@ -76,6 +76,8 @@ It runs on demand and nightly rather than on every push, because it runs in real
 
 `make spar` goes further and puts the interviewer in a live conversation with an AI playing the person being interviewed — three personas, each written to press a different rule in the interviewer's prompt. Both sides are real audio, so pauses and turn-taking are genuine rather than scripted.
 
+A six-minute session test runs nightly rather than on demand (`pnpm test:endurance`), because the interview lengths the product needs are several times longer than any other test here — and that gap once hid sessions dying after two minutes.
+
 Note that the judge and the personas both consume API quota; the free tier's daily cap is low enough that a few full runs will exhaust it.
 
 Synthesized speech is clean and evenly paced, so it proves correctness rather than robustness. Drop a real session recording into `backend/tests/live/recordings/` and the same harness will replay it.

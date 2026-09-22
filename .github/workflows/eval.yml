@@ -39,6 +39,10 @@ jobs:
 
       - run: make eval-api
       - run: make eval-browser
+      # Six minutes of real conversation. Too slow for the on-demand run, but
+      # the only thing that covers the session length the product needs.
+      - run: pnpm test:endurance
+        working-directory: frontend
 
       - uses: actions/upload-artifact@v4
         if: failure()
