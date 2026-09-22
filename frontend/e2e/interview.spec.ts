@@ -23,13 +23,17 @@ test('holds a Japanese conversation through the real page', async ({ page, conte
     }
   }, wav)
 
-  const levels: string[] = []
+  const diagnostics: string[] = []
   page.on('console', (message) => {
-    if (message.text().includes('[kataribe]')) levels.push(message.text())
+    if (message.text().includes('[kataribe]')) diagnostics.push(message.text())
   })
 
   await page.goto('/')
   await page.getByRole('button', { name: /start conversation/i }).click()
+
+  // The microphone is being heard, which is all the screen can show while
+  // someone is still talking.
+  await expect(page.locator('.monitor .meter span')).toBeVisible()
 
   const senior = page.locator('.transcript article.senior')
   await expect(senior).toContainText('長野', { timeout: 60_000 })
@@ -41,5 +45,8 @@ test('holds a Japanese conversation through the real page', async ({ page, conte
   // A dropped session shows up here rather than as an empty transcript.
   await expect(page.locator('.status')).not.toContainText('Closed')
 
-  expect(levels.some((l) => /peak (?!0%)\d+%/.test(l)), levels.join(' | ')).toBe(true)
+  const report = diagnostics.join(' | ')
+  expect(diagnostics.some((l) => /peak (?!0%)\d+%/.test(l)), report).toBe(true)
+  // A transcript without audio is the "it never spoke" failure.
+  expect(diagnostics.some((l) => l.includes('started speaking')), report).toBe(true)
 })

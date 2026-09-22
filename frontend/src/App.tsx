@@ -1,16 +1,28 @@
 import { useEffect, useRef, useState } from 'react';
 
 import './App.css';
-import { startInterview, type Interview, type Speaker, type Tuning } from './interview';
+import {
+  startInterview,
+  type Interview,
+  type Phase,
+  type Speaker,
+  type Tuning,
+} from './interview';
 
 interface Entry {
   speaker: Speaker;
   text: string;
 }
 
-type Phase = 'idle' | 'starting' | 'live' | 'stopping';
+type SessionPhase = 'idle' | 'starting' | 'live' | 'stopping';
 
 const SPEAKER_LABEL: Record<Speaker, string> = { senior: 'お話しされた方', ai: '聞き手' };
+
+const PHASE_LABEL: Record<Phase, [string, string]> = {
+  listening: ['聞いています', 'listening — nothing appears until you pause'],
+  thinking: ['考えています', 'heard you, preparing a reply'],
+  speaking: ['お話ししています', 'speaking'],
+};
 
 export default function App() {
   const [voices, setVoices] = useState<Record<string, string>>({});
@@ -19,11 +31,13 @@ export default function App() {
     silenceDurationMs: 5000,
     endOfSpeechSensitivity: 'LOW',
   });
-  const [phase, setPhase] = useState<Phase>('idle');
+  const [phase, setPhase] = useState<SessionPhase>('idle');
   const [status, setStatus] = useState('Ready');
   const [entries, setEntries] = useState<Entry[]>([]);
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  const [level, setLevel] = useState(0);
+  const [turn, setTurn] = useState<Phase>('listening');
 
   const interview = useRef<Interview | null>(null);
   const transcriptEnd = useRef<HTMLDivElement | null>(null);
@@ -60,6 +74,8 @@ export default function App() {
     setPhase('starting');
     setEntries([]);
     setElapsed(0);
+    setLevel(0);
+    setTurn('listening');
     if (recordingUrl) URL.revokeObjectURL(recordingUrl);
     setRecordingUrl(null);
 
@@ -67,6 +83,8 @@ export default function App() {
       interview.current = await startInterview(tuning, {
         onTranscript: appendTranscript,
         onStatus: setStatus,
+        onLevel: setLevel,
+        onPhase: setTurn,
         onClosed: (reason) => {
           setStatus(reason);
           setPhase('idle');
@@ -180,11 +198,30 @@ export default function App() {
         </div>
       </section>
 
+      {live && (
+        <section className={`monitor ${turn}`}>
+          <div className="meter" aria-hidden>
+            <span style={{ width: `${Math.min(100, level * 260)}%` }} />
+          </div>
+          <div className="phase">
+            <strong>{PHASE_LABEL[turn][0]}</strong>
+            <small>{PHASE_LABEL[turn][1]}</small>
+          </div>
+        </section>
+      )}
+
       <section className="transcript">
         {entries.length === 0 && !live && (
           <p className="empty">
             Start a conversation and speak Japanese. The senior's words appear on the left, the
             interviewer's on the right.
+          </p>
+        )}
+        {entries.length === 0 && live && (
+          <p className="empty">
+            Nothing reaches the screen while someone is still speaking — the transcript arrives
+            only once they pause long enough for the interviewer to take its turn. Watch the bar
+            above to confirm the microphone is being heard.
           </p>
         )}
         {entries.map((entry, index) => (

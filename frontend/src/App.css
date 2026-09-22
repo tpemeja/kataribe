@@ -180,6 +180,52 @@ button:disabled {
   color: var(--muted);
 }
 
+.monitor {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+}
+
+.meter {
+  flex: 1;
+  height: 0.75rem;
+  border-radius: 999px;
+  background: #241f1b;
+  overflow: hidden;
+}
+
+.meter span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 80ms linear;
+}
+
+.monitor.thinking .meter span,
+.monitor.speaking .meter span {
+  background: #6f8f7a;
+}
+
+.phase {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 14rem;
+}
+
+.phase strong {
+  font-size: 1.05rem;
+}
+
+.monitor.thinking .phase strong {
+  color: #9dc3ab;
+}
+
 .transcript {
   display: flex;
   flex-direction: column;
