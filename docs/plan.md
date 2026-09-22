@@ -110,7 +110,9 @@ sequenceDiagram
 
 One session end to end; the next session starts from the plan the job wrote.
 
-Model: [gemini-live-2.5-flash-native-audio](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/2-5-flash-live-api) is the generally available option, with affective dialog and automatic language switching. A newer 3.1 Flash Live preview also exists; pick after a Japanese test (see open questions).
+Model: `gemini-3.8-live` — generally available, and the [documented default](https://ai.google.dev/gemini-api/docs/models) for low-latency voice agents. It handles 70+ languages with real-time voice-to-voice translation. `gemini-3.8-live-extended-thinking` is the GA alternative if the interviewer needs more reasoning mid-conversation, at the cost of latency.
+
+Both models this plan originally weighed are now superseded: `gemini-2.5-flash-native-audio-preview-12-2025` and `gemini-3.1-flash-live-preview` are both still preview, and the 3.1 one is labelled legacy. Staying on a GA model removes the discontinuation risk the plan was worried about.
 
 ## Data model sketch
 
@@ -181,8 +183,9 @@ The biggest unknown is Japanese voice quality with older speakers, so test it in
 
 Open questions:
 
-- [ ] Which Live model: the GA 2.5 native audio or the 3.1 Flash Live preview? One developer reported a June 2026 [regression](https://github.com/google-gemini/cookbook/issues/1262) where the preview misidentified the spoken language.
-- [ ] Check the chosen model's listed discontinuation date and plan a migration path.
+- [x] ~~Which Live model: the GA 2.5 native audio or the 3.1 Flash Live preview?~~ Resolved 2026-09-22: both are superseded. Using `gemini-3.8-live`, which is GA. The earlier [language-switching regression](https://github.com/google-gemini/cookbook/issues/1262) was against a preview model; still worth confirming the language holds steady in the week-1 Japanese test.
+- [x] ~~Check the chosen model's listed discontinuation date.~~ No discontinuation date published for the 3.8 GA line; revisit if we move to Vertex.
+- [ ] Does `gemini-3.8-live` handle elderly Japanese speech well — dialect, slower pace, quieter voice? This is the week-1 test and still the biggest unknown.
 - [ ] Which region hosts the Live API, Firestore and Cloud Storage for Japanese seniors' voice data?
 - [ ] Who are the one or two seniors for testing, and when is the first session?
 - [ ] How do the senior and family give and record consent to recording?

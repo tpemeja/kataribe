@@ -8,8 +8,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_prefix="KATARIBE_", extra="ignore")
 
     gemini_api_key: str = ""
-    live_model: str = "gemini-live-2.5-flash-preview"
-    text_model: str = "gemini-2.5-flash"
+    live_model: str = "gemini-3.8-live"
+    text_model: str = "gemini-3.8-flash"
     data_dir: Path = Path("var")
     allowed_origins: list[str] = ["http://localhost:5173"]
 

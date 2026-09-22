@@ -60,4 +60,6 @@ Prototype deadline **2026-10-18**. A real senior tests from week 2.
 
 ## Open questions
 
-Tracked in [plan.md](plan.md#open-questions-and-risks). The one that gates slice 1: which Live model handles elderly Japanese speech best, and does it hold the language steady.
+Tracked in [plan.md](plan.md#open-questions-and-risks).
+
+Model choice is settled: **`gemini-3.8-live`** (GA) for voice, `gemini-3.8-flash` for the extraction and planning passes. The remaining question that gates slice 1 is empirical — does it handle elderly Japanese speech well, and does it hold the language steady across a long pause?
