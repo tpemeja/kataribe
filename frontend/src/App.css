@@ -136,8 +136,36 @@ small {
   line-height: 1.4;
 }
 
-.slider {
+.slider,
+.replay {
   grid-column: 1 / -1;
+}
+
+.replay input[type='file'] {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.replay input[type='file']::file-selector-button {
+  margin-right: 0.75rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 0.4rem;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.clear {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .actions {

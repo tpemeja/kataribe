@@ -1,6 +1,12 @@
 import { GoogleGenAI, type LiveServerMessage, type Session } from '@google/genai';
 
-import { CAPTURE_RATE, startCapture, type Capture } from './audio/capture';
+import {
+  CAPTURE_RATE,
+  microphone,
+  recording,
+  startCapture,
+  type Capture,
+} from './audio/capture';
 import { Playback } from './audio/playback';
 import { buildConversationWav } from './audio/wav';
 
@@ -38,6 +44,7 @@ interface SessionResponse {
 export async function startInterview(
   tuning: Tuning,
   callbacks: InterviewCallbacks,
+  replay?: File,
 ): Promise<Interview> {
   callbacks.onStatus('Requesting a session token');
 
@@ -109,9 +116,11 @@ export async function startInterview(
     },
   });
 
+  const source = replay ? await recording(replay) : await microphone();
+
   let sent = 0;
   let peak = 0;
-  capture = await startCapture((pcm) => {
+  capture = await startCapture(source, (pcm) => {
     sent += pcm.length;
     let loudest = 0;
     for (let i = 0; i < pcm.length; i++) {
@@ -129,12 +138,10 @@ export async function startInterview(
 
   // The socket closes if audio arrives faster than real time, so the mic rate
   // we actually got is the first thing worth seeing when a session misbehaves.
-  console.info(`[kataribe] mic ${capture.inputRate} Hz -> ${CAPTURE_RATE} Hz`);
-  callbacks.onStatus(
-    capture.inputRate === CAPTURE_RATE
-      ? 'Listening'
-      : `Listening (mic ${capture.inputRate} Hz, resampled)`,
+  console.info(
+    `[kataribe] ${source.label} ${capture.inputRate} Hz -> ${CAPTURE_RATE} Hz`,
   );
+  callbacks.onStatus(replay ? `Replaying ${source.label}` : 'Listening');
 
   const heartbeat = setInterval(() => {
     const level = ((peak / 0x8000) * 100).toFixed(0);

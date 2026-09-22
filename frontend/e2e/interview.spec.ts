@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 
 import { expect, test } from '@playwright/test'
 
-import { SAMPLE } from './generate-speech'
+import { INTERVIEWER_ONLY, SAMPLE, SESSION } from './generate-speech'
 
 test('holds a Japanese conversation through the real page', async ({ page, context }) => {
   const wav = readFileSync(SAMPLE).toString('base64')
@@ -49,4 +49,21 @@ test('holds a Japanese conversation through the real page', async ({ page, conte
   expect(diagnostics.some((l) => /peak (?!0%)\d+%/.test(l)), report).toBe(true)
   // A transcript without audio is the "it never spoke" failure.
   expect(diagnostics.some((l) => l.includes('started speaking')), report).toBe(true)
+})
+
+test('replays a downloaded session in place of the microphone', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('.replay input[type="file"]').setInputFiles(SESSION)
+
+  await page.getByRole('button', { name: /replay recording/i }).click()
+
+  const senior = page.locator('.transcript article.senior')
+  await expect(senior).toContainText('長野', { timeout: 60_000 })
+
+  // The right channel carries the interviewer's own voice. If it reaches the
+  // model, a replay is worthless — it would be answering itself.
+  await expect(senior).not.toContainText(INTERVIEWER_ONLY)
+
+  await expect(page.locator('.transcript article.ai')).toBeVisible({ timeout: 90_000 })
+  await expect(page.locator('.status')).not.toContainText('Closed')
 })

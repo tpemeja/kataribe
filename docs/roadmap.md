@@ -109,6 +109,14 @@ What the tester is judging — a native Japanese speaker, not necessarily elderl
 
 Download the recording afterwards — senior on the left channel, interviewer on the right.
 
+### Replaying a session
+
+The console takes a downloaded recording in place of the microphone, so a prompt edit or a new slider value can be tried against the same words rather than asking someone to sit down again. Only the left channel is sent, so the interviewer never hears its own previous answers.
+
+It is the fastest way to iterate, and the only way to compare two prompts on identical input. It does not replace a live session: a replay cannot react, so it tells you nothing about interruption or turn-taking.
+
+A recording worth keeping belongs in `backend/tests/live/recordings/`, where `make eval` will replay it as a fixture — that is how this suite stops being graded on synthesized speech.
+
 ### Slice 1 is done when
 
 - [ ] A five-minute Japanese conversation runs with no disconnect

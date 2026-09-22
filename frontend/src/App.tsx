@@ -38,6 +38,7 @@ export default function App() {
   const [elapsed, setElapsed] = useState(0);
   const [level, setLevel] = useState(0);
   const [turn, setTurn] = useState<Phase>('listening');
+  const [replay, setReplay] = useState<File | null>(null);
 
   const interview = useRef<Interview | null>(null);
   const transcriptEnd = useRef<HTMLDivElement | null>(null);
@@ -80,16 +81,20 @@ export default function App() {
     setRecordingUrl(null);
 
     try {
-      interview.current = await startInterview(tuning, {
-        onTranscript: appendTranscript,
-        onStatus: setStatus,
-        onLevel: setLevel,
-        onPhase: setTurn,
-        onClosed: (reason) => {
-          setStatus(reason);
-          setPhase('idle');
+      interview.current = await startInterview(
+        tuning,
+        {
+          onTranscript: appendTranscript,
+          onStatus: setStatus,
+          onLevel: setLevel,
+          onPhase: setTurn,
+          onClosed: (reason) => {
+            setStatus(reason);
+            setPhase('idle');
+          },
         },
-      });
+        replay ?? undefined,
+      );
       setPhase('live');
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error));
@@ -180,6 +185,28 @@ export default function App() {
           </select>
         </label>
 
+        <label className="replay">
+          <span>
+            Input
+            {replay && (
+              <button className="clear" onClick={() => setReplay(null)} disabled={live || busy}>
+                use the microphone
+              </button>
+            )}
+          </span>
+          <input
+            type="file"
+            accept="audio/wav,audio/*"
+            disabled={live || busy}
+            onChange={(e) => setReplay(e.target.files?.[0] ?? null)}
+          />
+          <small>
+            {replay
+              ? `Replaying ${replay.name} instead of the microphone. Only the left channel is sent, so the interviewer does not hear its own previous answers.`
+              : 'Live microphone. Choose a downloaded session to replay it instead — the same words, so a prompt or slider change can be compared against the last run.'}
+          </small>
+        </label>
+
         <div className="actions">
           {live ? (
             <button className="stop" onClick={stop} disabled={busy}>
@@ -187,7 +214,7 @@ export default function App() {
             </button>
           ) : (
             <button className="start" onClick={start} disabled={busy}>
-              Start conversation
+              {replay ? 'Replay recording' : 'Start conversation'}
             </button>
           )}
           {recordingUrl && (
