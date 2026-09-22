@@ -9,12 +9,12 @@ import contextlib
 import time
 from dataclasses import dataclass, field
 
-from google import genai
 from google.genai import types
 
 from kataribe.config import Settings
 from kataribe.gemini import InterviewTuning, mint_session_credentials
 from tests.live import speech
+from tests.live.connection import live_client
 
 FRAME_BYTES = 2048  # 1024 samples, matching the browser's worklet
 RATE = speech.RATE
@@ -74,7 +74,7 @@ async def run(
     if tail_seconds is None:
         tail_seconds = tuning.silence_duration_ms / 1000 + 8
     credentials = mint_session_credentials(settings, tuning)
-    client = genai.Client(api_key=credentials.token, http_options={"api_version": "v1alpha"})
+    client = live_client(api_key=credentials.token, http_options={"api_version": "v1alpha"})
 
     # Audio is paced in real time, so the script's duration is also its wall clock.
     result = Conversation(script_seconds=_budget(script))

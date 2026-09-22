@@ -148,7 +148,20 @@ Three personas, each pressing a different rule:
 
 Each prints who spoke when, flags any moment the interviewer talked over the other side, and saves a stereo recording under `backend/var/spar/`. Their biographies are fixed, so once stories are being extracted the extraction can be graded against facts we already know.
 
-The interviewee's socket tends to drop on keepalive around 70 seconds. Once a real exchange has happened that is reported as an ending rather than a failure.
+#### Why sessions used to die after two minutes
+
+Worth recording, because it was nearly missed and it bears on the 5–10 minute sessions the product needs.
+
+Sparring sessions kept dying around 70–130 seconds with `1011 keepalive ping timeout`. It looked like a quirk of the test harness. It was not: the same thing killed the interviewer's own session at 130s, and no test had ever run long enough to notice, since every one of them finished inside a minute.
+
+The cause was ours. The SDK hands the Python websockets library its default 20 second ping timeout, and the Live API does not reliably pong inside that window, so a healthy connection was being hung up on by our own client. The server was never asking us to leave — it sent no `go_away` at any point. With the timeout disabled, one connection ran 391 seconds.
+
+Two things follow:
+
+- Harness clients are built through `tests/live/connection.py`, which turns the ping timeout off.
+- The browser does its own keepalive and exposes no such setting, so the product path was never affected by this particular cause.
+
+Session resumption was also verified to work — `SessionResumptionConfig`, a handle on every `session_resumption_update`, and a reconnect that carries the conversation across. It is not needed for this cause, but it is the documented answer for a genuine server-side drop and the mechanism is proven should a long session need it.
 
 ### What `make eval` already checks for you
 

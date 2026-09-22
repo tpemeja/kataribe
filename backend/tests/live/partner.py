@@ -13,11 +13,11 @@ import wave
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from google import genai
 from google.genai import types
 
 from kataribe.config import Settings
 from kataribe.gemini import InterviewTuning, mint_session_credentials
+from tests.live.connection import live_client
 from tests.live.personas import Persona
 
 SEND_RATE = 16000
@@ -91,7 +91,7 @@ class Exchange:
     senior_audio: bytes = b""
     interviewer_audio: bytes = b""
     error: str | None = None
-    # The interviewee's socket tends to drop on keepalive around 70s. Once real
+    # A socket can still close for reasons outside our control. Once real
     # conversation has happened that is an ending, not a fault, so it is kept
     # apart from `error` and the transcript stays usable.
     ended: str | None = None
@@ -152,10 +152,10 @@ async def converse(
     tuning: InterviewTuning | None = None,
 ) -> Exchange:
     credentials = mint_session_credentials(settings, tuning or InterviewTuning())
-    interviewer_client = genai.Client(
+    interviewer_client = live_client(
         api_key=credentials.token, http_options={"api_version": "v1alpha"}
     )
-    senior_client = genai.Client(api_key=settings.gemini_api_key)
+    senior_client = live_client(api_key=settings.gemini_api_key)
 
     result = Exchange(persona=persona)
     to_interviewer, to_senior = Wire(), Wire()
