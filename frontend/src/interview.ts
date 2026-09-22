@@ -84,6 +84,8 @@ export async function startInterview(
   });
 
   capture = await startCapture((pcm) => {
+    // Must be `audio`, not `media`: `media` maps to the legacy mediaChunks
+    // field, which the native-audio models accept and then silently ignore.
     session?.sendRealtimeInput({
       audio: { data: encodeBase64(pcm), mimeType: `audio/pcm;rate=${CAPTURE_RATE}` },
     });

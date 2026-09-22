@@ -1,5 +1,7 @@
-const CHUNK_SAMPLES = 512;
+const CHUNK_SAMPLES = 1024;
 
+// Forwards raw frames at whatever rate the context is running; the main thread
+// resamples to the 16 kHz the Live API expects.
 class CaptureProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
@@ -14,12 +16,8 @@ class CaptureProcessor extends AudioWorkletProcessor {
     for (let i = 0; i < channel.length; i++) {
       this.buffer[this.filled++] = channel[i];
       if (this.filled === CHUNK_SAMPLES) {
-        const pcm = new Int16Array(CHUNK_SAMPLES);
-        for (let j = 0; j < CHUNK_SAMPLES; j++) {
-          const clamped = Math.max(-1, Math.min(1, this.buffer[j]));
-          pcm[j] = clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff;
-        }
-        this.port.postMessage(pcm, [pcm.buffer]);
+        const frame = new Float32Array(this.buffer);
+        this.port.postMessage(frame, [frame.buffer]);
         this.filled = 0;
       }
     }

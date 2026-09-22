@@ -19,7 +19,7 @@ check-api:
 	cd backend && uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pytest -q
 
 check-web:
-	cd frontend && pnpm lint && pnpm build
+	cd frontend && pnpm lint && pnpm test && pnpm build
 
 fmt:
 	cd backend && uv run ruff format . && uv run ruff check --fix .

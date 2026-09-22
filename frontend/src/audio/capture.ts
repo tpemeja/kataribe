@@ -1,3 +1,5 @@
+import { Resampler } from './resampler';
+
 // Served verbatim from public/ rather than bundled: Vite inlines small modules
 // as data: URLs, which AudioWorklet.addModule does not accept everywhere.
 const WORKLET_URL = '/capture-processor.js';
@@ -7,6 +9,7 @@ export const CAPTURE_RATE = 16000;
 export interface Capture {
   stop: () => Promise<void>;
   recorded: () => Int16Array;
+  inputRate: number;
 }
 
 export async function startCapture(onChunk: (pcm: Int16Array) => void): Promise<Capture> {
@@ -19,17 +22,21 @@ export async function startCapture(onChunk: (pcm: Int16Array) => void): Promise<
     },
   });
 
-  // Asking for a 16 kHz context lets the browser resample the mic for us.
+  // A browser may ignore this and run at its own rate, so we read back what we
+  // actually got and resample from there.
   const context = new AudioContext({ sampleRate: CAPTURE_RATE });
   await context.audioWorklet.addModule(WORKLET_URL);
 
+  const resampler = new Resampler(context.sampleRate, CAPTURE_RATE);
   const source = context.createMediaStreamSource(stream);
   const node = new AudioWorkletNode(context, 'capture-processor');
   const chunks: Int16Array[] = [];
 
-  node.port.onmessage = (event: MessageEvent<Int16Array>) => {
-    chunks.push(event.data);
-    onChunk(event.data);
+  node.port.onmessage = (event: MessageEvent<Float32Array>) => {
+    const pcm = resampler.process(event.data);
+    if (pcm.length === 0) return;
+    chunks.push(pcm);
+    onChunk(pcm);
   };
 
   source.connect(node);
@@ -43,6 +50,7 @@ export async function startCapture(onChunk: (pcm: Int16Array) => void): Promise<
       await context.close();
     },
     recorded: () => concat(chunks),
+    inputRate: context.sampleRate,
   };
 }
 
