@@ -61,3 +61,11 @@ def test_live_config_requests_word_timestamps_for_quote_linking() -> None:
 
     assert config.input_audio_transcription is not None
     assert config.input_audio_transcription.word_timestamp is True
+
+
+def test_live_config_leaves_affective_dialog_off() -> None:
+    # Setting it makes any ephemeral-token session reject realtime audio with
+    # close code 1007, which is how the browser client connects.
+    config = build_live_config(InterviewTuning())
+
+    assert not config.enable_affective_dialog

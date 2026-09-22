@@ -79,11 +79,19 @@ export async function startInterview(
         }
       },
       onerror: (event: ErrorEvent) => callbacks.onClosed(event.message || 'Connection error'),
-      onclose: (event: CloseEvent) => callbacks.onClosed(event.reason || 'Connection closed'),
+      onclose: (event: CloseEvent) =>
+        callbacks.onClosed(`Closed ${event.code}: ${event.reason || 'no reason given'}`),
     },
   });
 
+  let sent = 0;
+  let peak = 0;
   capture = await startCapture((pcm) => {
+    sent += pcm.length;
+    for (let i = 0; i < pcm.length; i++) {
+      const level = Math.abs(pcm[i]);
+      if (level > peak) peak = level;
+    }
     // Must be `audio`, not `media`: `media` maps to the legacy mediaChunks
     // field, which the native-audio models accept and then silently ignore.
     session?.sendRealtimeInput({
@@ -91,8 +99,24 @@ export async function startInterview(
     });
   });
 
+  // The socket closes if audio arrives faster than real time, so the mic rate
+  // we actually got is the first thing worth seeing when a session misbehaves.
+  console.info(`[kataribe] mic ${capture.inputRate} Hz -> ${CAPTURE_RATE} Hz`);
+  callbacks.onStatus(
+    capture.inputRate === CAPTURE_RATE
+      ? 'Listening'
+      : `Listening (mic ${capture.inputRate} Hz, resampled)`,
+  );
+
+  const heartbeat = setInterval(() => {
+    const level = ((peak / 0x8000) * 100).toFixed(0);
+    console.info(`[kataribe] sent ${(sent / CAPTURE_RATE).toFixed(1)}s, peak ${level}%`);
+    peak = 0;
+  }, 5000);
+
   return {
     stop: async () => {
+      clearInterval(heartbeat);
       const mic = capture?.recorded() ?? new Int16Array(0);
       const spoken = playback.recorded();
       await capture?.stop();

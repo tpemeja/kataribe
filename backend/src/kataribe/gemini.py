@@ -63,7 +63,11 @@ def build_live_config(tuning: InterviewTuning) -> types.LiveConnectConfig:
                 end_of_speech_sensitivity=END_SENSITIVITY[tuning.end_of_speech_sensitivity],
             )
         ),
-        enable_affective_dialog=True,
+        # No enable_affective_dialog here. It works on a direct API-key
+        # connection, but any session reached through an ephemeral token
+        # rejects realtime audio with close code 1007 once it is set — whether
+        # locked into the token or asked for by the client. Emotional
+        # sensitivity is carried by the interviewer prompt instead.
         context_window_compression=types.ContextWindowCompressionConfig(
             sliding_window=types.SlidingWindow()
         ),
