@@ -69,7 +69,26 @@ Prototype deadline **2026-10-18**. A real senior tests from week 2.
 make dev          # API on :8000, console on :5173
 ```
 
-Open the console, pick a voice, set the pause slider, and press **Start conversation**. Changing a tuning value starts a fresh session, because the values are locked into the token when it is minted.
+Open <http://localhost:5173> in Chrome, then **hard-reload** (Cmd-Shift-R). The audio worklet is served from `public/` and browsers cache it across restarts.
+
+### Pre-flight, on your own, before anyone else is in the room
+
+Press **Start conversation**, allow the microphone, say anything for ten seconds, and watch the browser console:
+
+```
+[kataribe] mic 16000 Hz -> 16000 Hz
+[kataribe] sent 5.0s, peak 34%
+```
+
+- **`peak 0%`** means the microphone is delivering silence. Nothing else will work; fix the input device first.
+- **`peak 99%`** every time means it is clipping. Move back from the mic.
+- **Anything about "Closed 1007"** means the session is being rejected. Stop and report it rather than continuing.
+
+Do not spend a native speaker's time until this reads sensibly and Japanese words appear in the transcript.
+
+### The session itself
+
+Pick a voice, set the pause slider, press **Start conversation**. Changing a tuning value starts a fresh session, because the values are locked into the token when it is minted — so work in short runs rather than one long one.
 
 What the tester is judging — a native Japanese speaker, not necessarily elderly:
 
@@ -80,6 +99,17 @@ What the tester is judging — a native Japanese speaker, not necessarily elderl
 5. **Which voice?** Seven are shortlisted. Pick by ear.
 
 Download the recording afterwards — senior on the left channel, interviewer on the right.
+
+### Slice 1 is done when
+
+- [ ] A five-minute Japanese conversation runs with no disconnect
+- [ ] The interviewer does not talk over a three-second pause for thought, at a known slider value
+- [ ] It never drifts out of Japanese
+- [ ] A native speaker says the transcript matches what was actually said, names and places included
+- [ ] A voice is chosen
+- [ ] The recording downloads and plays back as a conversation
+
+Write the slider value and the voice into the defaults once they are known: `InterviewTuning` in `backend/src/kataribe/gemini.py`.
 
 ## Open questions
 
