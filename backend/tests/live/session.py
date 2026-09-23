@@ -67,13 +67,14 @@ async def run(
     settings: Settings,
     tuning: InterviewTuning | None = None,
     tail_seconds: float | None = None,
+    context: str = "",
 ) -> Conversation:
     tuning = tuning or InterviewTuning()
     # The model needs its full patience in silence before it accepts the turn has
     # ended, and then a moment to answer, so the tail has to outlast the setting.
     if tail_seconds is None:
         tail_seconds = tuning.silence_duration_ms / 1000 + 8
-    credentials = mint_session_credentials(settings, tuning)
+    credentials = mint_session_credentials(settings, tuning, context)
     client = live_client(api_key=credentials.token, http_options={"api_version": "v1alpha"})
 
     # Audio is paced in real time, so the script's duration is also its wall clock.

@@ -201,6 +201,14 @@ This matters more than it looks. The output of this product is a memoir a family
 
 Slice 3 introduced that profile and the fix is now in: `brain.context_for` puts the name, its reading, the birth year and the birthplace into the prompt, and the interviewer is told to use that spelling. Recordings made before this may still carry the wrong characters.
 
+The profile only covers the people it lists — the senior, and the family members entered with them. Everyone else arrives through audio alone: the first boss, the neighbour, the schoolteacher, the friend who moved away. Those names have the same homophone problem and nothing to check them against, and they are most of the names a life story contains.
+
+Three things could help, none of them yet built:
+
+- **Do not assert a spelling we do not have.** A name heard once could be stored in kana, as it was heard, rather than in kanji the model chose. An honest 「しげるさん」 is better than a confident, wrong 佐藤繁.
+- **Let the family correct them.** Relatives know how their grandfather's friend's name is written. This fits the family loop already planned for slice 6 — a name the senior cannot easily spell out is exactly the kind of thing a family member can fix in one tap, and it turns a defect into a reason for them to open the page.
+- **Confirm in conversation, carefully.** The prompt already asks the interviewer to check names lightly, but confirming a *sound* does not settle a *spelling*, and asking an eighty-year-old which characters they mean is not a warm question. This is the weakest of the three.
+
 What remains unproven is whether the model reliably uses the spelling it is handed. It did in one run and greeted with the wrong-name-free 「田中ハルさん」; in another it greeted without using the name at all. Being given a fact is not the same as honouring it, and that needs measuring over several runs rather than asserting.
 
 ### The harness was only testing the first exchange
