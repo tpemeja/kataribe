@@ -86,6 +86,108 @@ h1 {
   color: var(--muted);
 }
 
+.views {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.views button {
+  padding: 0.6rem 1rem;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.views button.on {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.sessions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.session {
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.summary {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  padding: 0.9rem 1.1rem;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  text-align: left;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.summary .facts {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.detail {
+  padding: 0 1.1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.detail audio {
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.line {
+  display: flex;
+  gap: 0.75rem;
+  align-items: baseline;
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.line .at,
+.line .who {
+  flex: none;
+  color: var(--muted);
+}
+
+.line .at {
+  width: 2.5rem;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.line .who {
+  width: 6rem;
+  font-size: 0.7rem;
+}
+
+.line .said {
+  flex: 1;
+}
+
+.line.ai {
+  color: #b9d6c4;
+}
+
 .controls {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));

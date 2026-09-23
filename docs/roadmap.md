@@ -55,6 +55,7 @@ Prototype deadline **2026-10-18**. A real senior tests from week 2.
 
 - [x] **0 — Walking skeleton**
 - [~] **1 — It talks** — built; waiting on a live test with a Japanese speaker
+- [x] **2 — It remembers the session** — sessions, transcripts and audio stored and replayable
 
 - [ ] 2 — It remembers the session
 - [ ] 3 — It has a brain
@@ -168,6 +169,28 @@ Session resumption was also verified to work — `SessionResumptionConfig`, a ha
 Before spending anyone's time, `make eval` streams synthesized Japanese at the real API and asserts the transcript is accurate, the interviewer waits through a pause, cuts in when patience is lowered, replies in Japanese asking one thing, backs off when a topic is refused, and that the whole loop works in a real browser.
 
 It leaves exactly one thing it cannot judge, which is the point of the human session: **whether the Japanese is good.** A native speaker has not yet reviewed `interviewer_ja.md`, and one known issue is already marked `xfail` — the interviewer sometimes recaps what it heard before asking, which its own prompt forbids. Whether that reads as natural aizuchi or as presumptuous is a call only a native speaker can make.
+
+## Linking a quote to its audio needs a separate pass
+
+Slice 5 shows every passage with the senior's own voice behind it, which needs to know where in the recording each phrase sits.
+
+The Live API takes `word_timestamp` on its transcription config and then ignores it: the transcription comes back with text and an empty `words` list, on a raw key as well as through an ephemeral token, with and without `VERBATIM` mode. It is still requested, so offsets arrive free if that changes, but nothing may be built on it.
+
+Stored turns carry a `started_at`, and it is honest about what it is: the moment the transcript *arrived*, which is when the turn ended. In a thirteen second session both turns were stamped at 0:12 and 0:13. Useful for ordering, useless for seeking.
+
+So slice 5 needs the offsets from somewhere else — most likely a transcription pass over the stored recording during slice 3's processing, which would also be a second opinion on accuracy. `gemini-3.5-transcribe-live` is the obvious candidate to try first.
+
+## Known prompt gaps
+
+Three places where the interviewer does not follow its own instructions. All are marked `xfail`, so the suite stays honest without being permanently red; they flip to `xpass` when fixed.
+
+| What it does | Rule it breaks | How often |
+| --- | --- | --- |
+| Recaps what it heard before asking | 相手の言葉を…まとめ直さないでください | intermittent |
+| States details the person never gave — a town when they named a region, a wrong given name | 言っていないことを、推測して補わないでください | intermittent |
+| Acknowledges a change of subject, then steers back to its own question | そのままついていってください | seen every time so far |
+
+They are one problem, not three: the prompt is long and leans on negative instructions, which this model follows unreliably. Worth reworking as a whole rather than patching line by line — and worth doing before a first session with a real senior, because a transcript full of invented details poisons the story extraction that slice 3 builds on.
 
 ## Open questions
 

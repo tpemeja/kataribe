@@ -49,6 +49,19 @@ test('holds a Japanese conversation through the real page', async ({ page, conte
   expect(diagnostics.some((l) => /peak (?!0%)\d+%/.test(l)), report).toBe(true)
   // A transcript without audio is the "it never spoke" failure.
   expect(diagnostics.some((l) => l.includes('started speaking')), report).toBe(true)
+
+  // Stopping must leave the session on the server, not only in the browser.
+  await page.getByRole('button', { name: /^stop$/i }).click()
+  await expect(page.locator('.status')).toContainText(/saved|finished/i, { timeout: 30_000 })
+
+  await page.getByRole('button', { name: /past sessions/i }).click()
+  const first = page.locator('.session').first()
+  await expect(first).toBeVisible()
+  await expect(first.locator('.facts')).toContainText(/[1-9]\d* turns/)
+
+  await first.locator('.summary').click()
+  await expect(first.locator('.detail audio')).toBeVisible()
+  await expect(first.locator('.line.senior')).toContainText('長野')
 })
 
 test('replays a downloaded session in place of the microphone', async ({ page }) => {

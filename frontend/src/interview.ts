@@ -1,12 +1,6 @@
 import { GoogleGenAI, type LiveServerMessage, type Session } from '@google/genai';
 
-import {
-  CAPTURE_RATE,
-  microphone,
-  recording,
-  startCapture,
-  type Capture,
-} from './audio/capture';
+import { CAPTURE_RATE, microphone, recording, startCapture, type Capture } from './audio/capture';
 import { Playback } from './audio/playback';
 import { buildConversationWav } from './audio/wav';
 
@@ -33,10 +27,12 @@ export interface InterviewCallbacks {
 }
 
 export interface Interview {
+  sessionId: string;
   stop: () => Promise<Blob>;
 }
 
 interface SessionResponse {
+  session_id: string;
   token: string;
   model: string;
 }
@@ -60,7 +56,7 @@ export async function startInterview(
   if (!response.ok) {
     throw new Error(`Could not start a session (${response.status}): ${await response.text()}`);
   }
-  const { token, model }: SessionResponse = await response.json();
+  const { session_id: sessionId, token, model }: SessionResponse = await response.json();
 
   const playback = new Playback();
   const ai = new GoogleGenAI({ apiKey: token, httpOptions: { apiVersion: 'v1alpha' } });
@@ -70,6 +66,25 @@ export async function startInterview(
   let session: Session | undefined;
   let capture: Capture | undefined;
   let playedAnything = false;
+
+  const openedAt = performance.now();
+  const transcript: { speaker: Speaker; text: string; started_at: number }[] = [];
+
+  // Turns are stamped with when they began, so a stored transcript can be
+  // lined up against the recording later.
+  const record = (speaker: Speaker, delta: string) => {
+    const last = transcript[transcript.length - 1];
+    if (last?.speaker === speaker) {
+      last.text += delta;
+    } else {
+      transcript.push({
+        speaker,
+        text: delta,
+        started_at: (performance.now() - openedAt) / 1000,
+      });
+    }
+    callbacks.onTranscript(speaker, delta);
+  };
 
   session = await ai.live.connect({
     model,
@@ -88,13 +103,13 @@ export async function startInterview(
 
         const heard = content.inputTranscription?.text;
         if (heard) {
-          callbacks.onTranscript('senior', heard);
+          record('senior', heard);
           callbacks.onPhase('thinking');
         }
 
         const spoken = content.outputTranscription?.text;
         if (spoken) {
-          callbacks.onTranscript('ai', spoken);
+          record('ai', spoken);
           callbacks.onPhase('speaking');
         }
 
@@ -138,9 +153,7 @@ export async function startInterview(
 
   // The socket closes if audio arrives faster than real time, so the mic rate
   // we actually got is the first thing worth seeing when a session misbehaves.
-  console.info(
-    `[kataribe] ${source.label} ${capture.inputRate} Hz -> ${CAPTURE_RATE} Hz`,
-  );
+  console.info(`[kataribe] ${source.label} ${capture.inputRate} Hz -> ${CAPTURE_RATE} Hz`);
   callbacks.onStatus(replay ? `Replaying ${source.label}` : 'Listening');
 
   const heartbeat = setInterval(() => {
@@ -150,6 +163,7 @@ export async function startInterview(
   }, 5000);
 
   return {
+    sessionId,
     stop: async () => {
       clearInterval(heartbeat);
       const mic = capture?.recorded() ?? new Int16Array(0);
@@ -157,9 +171,50 @@ export async function startInterview(
       await capture?.stop();
       session?.close();
       await playback.close();
-      return buildConversationWav(mic, spoken);
+
+      const wav = buildConversationWav(mic, spoken);
+      await keep(
+        sessionId,
+        wav,
+        transcript,
+        (performance.now() - openedAt) / 1000,
+        source.label,
+        callbacks,
+      );
+      return wav;
     },
   };
+}
+
+/** Uploading must not lose the recording: the browser copy is the only one
+ *  until this succeeds, so a failure is reported rather than swallowed. */
+async function keep(
+  sessionId: string,
+  wav: Blob,
+  transcript: unknown[],
+  seconds: number,
+  inputLabel: string,
+  callbacks: InterviewCallbacks,
+): Promise<void> {
+  const form = new FormData();
+  form.append('audio', wav, `${sessionId}.wav`);
+  form.append('transcript', JSON.stringify(transcript));
+  form.append('duration_seconds', String(seconds));
+  form.append('input_label', inputLabel);
+
+  try {
+    const response = await fetch(`/api/sessions/${sessionId}/recording`, {
+      method: 'POST',
+      body: form,
+    });
+    if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
+    callbacks.onStatus('Saved');
+  } catch (error) {
+    callbacks.onStatus(
+      `Saved locally only — upload failed (${error instanceof Error ? error.message : error}). ` +
+        'Download the recording before starting another session.',
+    );
+  }
 }
 
 function encodeBase64(pcm: Int16Array): string {

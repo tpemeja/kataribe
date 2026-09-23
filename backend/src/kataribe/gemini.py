@@ -56,7 +56,12 @@ def build_live_config(tuning: InterviewTuning) -> types.LiveConnectConfig:
                 prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=tuning.voice)
             ),
         ),
-        # word_timestamp gives us the audio offsets that story quotes link back to.
+        # word_timestamp is accepted and then ignored by this model: the
+        # transcription comes back with text and an empty `words`, on the raw
+        # key as well as through a token, with and without VERBATIM mode. It is
+        # left set so we get offsets if support arrives, but nothing may depend
+        # on it — linking a quote to its audio needs a separate pass over the
+        # stored recording.
         input_audio_transcription=types.AudioTranscriptionConfig(
             language_codes=["ja-JP"], word_timestamp=True
         ),
