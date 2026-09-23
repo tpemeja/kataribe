@@ -35,12 +35,14 @@ interface SessionResponse {
   session_id: string;
   token: string;
   model: string;
+  resuming: boolean;
 }
 
 export async function startInterview(
   tuning: Tuning,
   callbacks: InterviewCallbacks,
   replay?: File,
+  seniorId?: string | null,
 ): Promise<Interview> {
   callbacks.onStatus('Requesting a session token');
 
@@ -48,6 +50,7 @@ export async function startInterview(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      senior_id: seniorId ?? null,
       voice: tuning.voice,
       silence_duration_ms: tuning.silenceDurationMs,
       end_of_speech_sensitivity: tuning.endOfSpeechSensitivity,
@@ -56,7 +59,7 @@ export async function startInterview(
   if (!response.ok) {
     throw new Error(`Could not start a session (${response.status}): ${await response.text()}`);
   }
-  const { session_id: sessionId, token, model }: SessionResponse = await response.json();
+  const { session_id: sessionId, token, model, resuming }: SessionResponse = await response.json();
 
   const playback = new Playback();
   const ai = new GoogleGenAI({ apiKey: token, httpOptions: { apiVersion: 'v1alpha' } });
@@ -154,7 +157,13 @@ export async function startInterview(
   // The socket closes if audio arrives faster than real time, so the mic rate
   // we actually got is the first thing worth seeing when a session misbehaves.
   console.info(`[kataribe] ${source.label} ${capture.inputRate} Hz -> ${CAPTURE_RATE} Hz`);
-  callbacks.onStatus(replay ? `Replaying ${source.label}` : 'Listening');
+  callbacks.onStatus(
+    replay
+      ? `Replaying ${source.label}`
+      : resuming
+        ? 'Listening — the interviewer remembers last time'
+        : 'Listening',
+  );
 
   const heartbeat = setInterval(() => {
     const level = ((peak / 0x8000) * 100).toFixed(0);

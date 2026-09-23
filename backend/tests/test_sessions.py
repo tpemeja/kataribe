@@ -90,7 +90,7 @@ def fake_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     """Skip the real token mint; these tests are about storage, not Gemini."""
     monkeypatch.setattr(
         "kataribe.api.sessions.mint_session_credentials",
-        lambda settings, tuning: SessionCredentials(
+        lambda settings, tuning, context="": SessionCredentials(
             token="test-token",
             model="gemini-3.8-live",
             expires_at=datetime.datetime.now(datetime.UTC),

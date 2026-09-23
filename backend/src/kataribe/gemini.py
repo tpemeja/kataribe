@@ -46,10 +46,17 @@ class SessionCredentials:
     expires_at: datetime.datetime
 
 
-def build_live_config(tuning: InterviewTuning) -> types.LiveConnectConfig:
+def build_live_config(tuning: InterviewTuning, context: str = "") -> types.LiveConnectConfig:
+    """`context` carries what is known about this particular person and what was
+    said last time. Facts given here are not transcribed, which is how the
+    interviewer stops guessing at the kanji in someone's name."""
+    instruction = interviewer_instruction()
+    if context:
+        instruction = f"{instruction}\n\n---\n\n{context}"
+
     return types.LiveConnectConfig(
         response_modalities=[types.Modality.AUDIO],
-        system_instruction=interviewer_instruction(),
+        system_instruction=instruction,
         speech_config=types.SpeechConfig(
             language_code="ja-JP",
             voice_config=types.VoiceConfig(
@@ -83,7 +90,9 @@ def build_live_config(tuning: InterviewTuning) -> types.LiveConnectConfig:
     )
 
 
-def mint_session_credentials(settings: Settings, tuning: InterviewTuning) -> SessionCredentials:
+def mint_session_credentials(
+    settings: Settings, tuning: InterviewTuning, context: str = ""
+) -> SessionCredentials:
     client = genai.Client(api_key=settings.gemini_api_key)
     now = datetime.datetime.now(tz=datetime.UTC)
     expires_at = now + TOKEN_LIFETIME
@@ -95,7 +104,7 @@ def mint_session_credentials(settings: Settings, tuning: InterviewTuning) -> Ses
             new_session_expire_time=now + NEW_SESSION_WINDOW,
             live_connect_constraints=types.LiveConnectConstraints(
                 model=settings.live_model,
-                config=build_live_config(tuning),
+                config=build_live_config(tuning, context),
             ),
             # Empty list locks exactly the fields set above and nothing more.
             lock_additional_fields=[],

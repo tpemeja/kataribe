@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import './App.css';
 import { startInterview, type Interview, type Phase, type Speaker, type Tuning } from './interview';
+import Seniors from './Seniors';
 import Sessions from './Sessions';
 
 interface Entry {
@@ -38,6 +39,7 @@ export default function App() {
   const [turn, setTurn] = useState<Phase>('listening');
   const [replay, setReplay] = useState<File | null>(null);
   const [view, setView] = useState<'interview' | 'sessions'>('interview');
+  const [seniorId, setSeniorId] = useState<string | null>(null);
 
   const interview = useRef<Interview | null>(null);
   const transcriptEnd = useRef<HTMLDivElement | null>(null);
@@ -93,6 +95,7 @@ export default function App() {
           },
         },
         replay ?? undefined,
+        seniorId,
       );
       setPhase('live');
     } catch (error) {
@@ -149,6 +152,8 @@ export default function App() {
       {view === 'interview' && (
         <>
           <section className="controls">
+            <Seniors selected={seniorId} onSelect={setSeniorId} disabled={live || busy} />
+
             <label>
               <span>Voice</span>
               <select

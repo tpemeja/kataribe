@@ -56,7 +56,7 @@ Prototype deadline **2026-10-18**. A real senior tests from week 2.
 - [x] **0 — Walking skeleton**
 - [~] **1 — It talks** — built; waiting on a live test with a Japanese speaker
 - [x] **2 — It remembers the session** — sessions, transcripts and audio stored and replayable
-- [ ] 3 — It has a brain
+- [x] **3 — It has a brain** — stories extracted and verified, timeline, gaps, next questions, context carried into the following session
 - [ ] 4 — It notices you
 - [ ] 5 — It asks permission
 - [ ] 6 — The family asks back
@@ -186,10 +186,22 @@ Measured with `tests/live/test_conversation.py`, which now runs a real multi-tur
 | --- | --- |
 | Raises a refused topic again | **Fixed.** Broken by the prompt rewrite itself, then fixed by giving rule 2 its exception. |
 | Steers back instead of following a change of subject | **Mostly works.** Over nine turns it followed her from sunbathing to the weather to the department store to the neighbour to the cat, then repeated an earlier question once. A lapse rather than a rule it ignores. |
-| Uses the wrong kanji for a name | **Open, and the sharpest of these.** He introduced himself as 佐藤**茂**; the interviewer called him 佐藤**繁**. Both read *Shigeru*. The model hears the sound and picks a plausible spelling. A memoir that misspells a grandfather's name is a serious defect, and no instruction in the prompt can reliably fix a homophone — this likely needs the name supplied as a seed fact rather than transcribed. |
+| Uses the wrong kanji for a name | **Fix in place, not yet proven.** The name now reaches the prompt from the senior's profile instead of being transcribed. Whether the model always uses the spelling it is given is a separate question, and one run is not an answer. |
 | Recaps what it heard before asking | **Open**, and a native speaker's call: whether 〜のですね reads as natural aizuchi or as presumptuous is not something the harness can settle. |
 
 Note that a per-conversation pass rate is harsher than a per-turn one: nine turns give four or five chances to slip, so one lapse fails the whole run.
+
+### Deferred: names come back with the wrong kanji
+
+He introduced himself as 佐藤**茂**; the interviewer called him 佐藤**繁**. Both read *Shigeru*. The model hears a sound and picks a plausible spelling for it.
+
+This matters more than it looks. The output of this product is a memoir a family keeps, and misspelling a grandfather's name in it is not a cosmetic defect. It is also the same failure as naming a town that was never named — the model filling a gap with something plausible.
+
+**No prompt instruction can fix a homophone**, so this is not a wording problem and should not be attacked as one. The fix is to stop transcribing what we already know: the senior's name, birthplace and family names belong in their profile as seed facts, and the interviewer should be given them rather than inferring them from audio. `seniors/{id}` in [plan.md](plan.md#data-model-sketch) already carries them.
+
+Slice 3 introduced that profile and the fix is now in: `brain.context_for` puts the name, its reading, the birth year and the birthplace into the prompt, and the interviewer is told to use that spelling. Recordings made before this may still carry the wrong characters.
+
+What remains unproven is whether the model reliably uses the spelling it is handed. It did in one run and greeted with the wrong-name-free 「田中ハルさん」; in another it greeted without using the name at all. Being given a fact is not the same as honouring it, and that needs measuring over several runs rather than asserting.
 
 ### The harness was only testing the first exchange
 

@@ -3,12 +3,14 @@ import json
 from functools import lru_cache
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
+from kataribe import brain
 from kataribe.config import Settings, get_settings
 from kataribe.gemini import VOICES, InterviewTuning, mint_session_credentials
+from kataribe.processing import process_session
 from kataribe.store import Store, Turn
 
 router = APIRouter(prefix="/api", tags=["sessions"])
@@ -25,7 +27,42 @@ def get_store(settings: Annotated[Settings, Depends(get_settings)]) -> Store:
     return _store(str(settings.data_dir))
 
 
+class SeniorRequest(BaseModel):
+    name: str
+    name_reading: str = ""
+    birth_year: int | None = None
+    birthplace: str = ""
+    family: list[str] = Field(default_factory=list)
+
+
+class SeniorView(SeniorRequest):
+    id: str
+
+
+class QuoteView(BaseModel):
+    text: str
+    turn: int
+
+
+class StoryView(BaseModel):
+    id: str
+    title: str
+    summary: str
+    life_stage: str
+    approx_period: str
+    people: list[str]
+    places: list[str]
+    quotes: list[QuoteView]
+
+
+class PlanView(BaseModel):
+    story_so_far: str
+    next_questions: list[str]
+    avoid_topics: list[str]
+
+
 class SessionRequest(BaseModel):
+    senior_id: str | None = None
     voice: str = "Sulafat"
     silence_duration_ms: int = Field(default=5000, ge=200, le=8000)
     end_of_speech_sensitivity: Literal["LOW", "HIGH"] = "LOW"
@@ -33,6 +70,8 @@ class SessionRequest(BaseModel):
 
 class SessionResponse(BaseModel):
     session_id: str
+    senior_id: str | None = None
+    resuming: bool = False
     token: str
     model: str
     expires_at: datetime.datetime
@@ -48,6 +87,7 @@ class TurnView(BaseModel):
 
 class SessionSummary(BaseModel):
     id: str
+    status: str
     started_at: datetime.datetime
     duration_seconds: float | None
     voice: str
@@ -61,11 +101,31 @@ class SessionDetail(SessionSummary):
     model: str
     end_of_speech_sensitivity: str
     transcript: list[TurnView]
+    stories: list[StoryView]
+    processing_error: str | None = None
 
 
 @router.get("/voices")
 def list_voices() -> dict[str, str]:
     return VOICES
+
+
+@router.get("/seniors")
+def list_seniors(store: Annotated[Store, Depends(get_store)]) -> list[SeniorView]:
+    return [SeniorView(**senior.__dict__) for senior in store.list_seniors()]
+
+
+@router.post("/seniors")
+def add_senior(request: SeniorRequest, store: Annotated[Store, Depends(get_store)]) -> SeniorView:
+    senior_id = store.add_senior(**request.model_dump())
+    return SeniorView(id=senior_id, **request.model_dump())
+
+
+@router.get("/seniors/{senior_id}/plan")
+def read_plan(senior_id: str, store: Annotated[Store, Depends(get_store)]) -> PlanView:
+    if store.get_senior(senior_id) is None:
+        raise HTTPException(status_code=404, detail=f"No senior {senior_id}")
+    return PlanView(**store.get_plan(senior_id).__dict__)
 
 
 @router.post("/sessions")
@@ -84,16 +144,30 @@ def create_session(
         silence_duration_ms=request.silence_duration_ms,
         end_of_speech_sensitivity=request.end_of_speech_sensitivity,
     )
-    credentials = mint_session_credentials(settings, tuning)
+    # What the interviewer already knows about this person, and what it meant to
+    # ask today. Locked into the token with everything else.
+    context = ""
+    plan = None
+    if request.senior_id:
+        senior = store.get_senior(request.senior_id)
+        if senior is None:
+            raise HTTPException(status_code=404, detail=f"No senior {request.senior_id}")
+        plan = store.get_plan(senior.id)
+        context = brain.context_for(senior, plan)
+
+    credentials = mint_session_credentials(settings, tuning, context)
     session_id = store.start(
         model=credentials.model,
         voice=tuning.voice,
         silence_duration_ms=tuning.silence_duration_ms,
         end_of_speech_sensitivity=tuning.end_of_speech_sensitivity,
+        senior_id=request.senior_id,
     )
 
     return SessionResponse(
         session_id=session_id,
+        senior_id=request.senior_id,
+        resuming=bool(plan and not plan.is_empty),
         token=credentials.token,
         model=credentials.model,
         expires_at=credentials.expires_at,
@@ -105,6 +179,8 @@ def create_session(
 @router.post("/sessions/{session_id}/recording", status_code=204)
 async def upload_recording(
     session_id: str,
+    background: BackgroundTasks,
+    settings: Annotated[Settings, Depends(get_settings)],
     store: Annotated[Store, Depends(get_store)],
     transcript: Annotated[str, Form()],
     duration_seconds: Annotated[float, Form()],
@@ -126,6 +202,10 @@ async def upload_recording(
         duration_seconds=duration_seconds,
         input_label=input_label,
     )
+    # Extraction takes seconds and can fail. Neither should cost the upload,
+    # which until now held the only copy of the recording.
+    store.set_status(session_id, "queued")
+    background.add_task(process_session, settings, store, session_id)
 
 
 @router.get("/sessions")
@@ -133,6 +213,7 @@ def list_sessions(store: Annotated[Store, Depends(get_store)]) -> list[SessionSu
     return [
         SessionSummary(
             id=session.id,
+            status=session.status,
             started_at=session.started_at,
             duration_seconds=session.duration_seconds,
             voice=session.voice,
@@ -141,7 +222,7 @@ def list_sessions(store: Annotated[Store, Depends(get_store)]) -> list[SessionSu
             turns=len(session.turns),
             has_audio=store.audio_path(session.id) is not None,
         )
-        for session in store.list()
+        for session in store.list_sessions()
     ]
 
 
@@ -152,6 +233,7 @@ def read_session(session_id: str, store: Annotated[Store, Depends(get_store)]) -
         raise HTTPException(status_code=404, detail=f"No session {session_id}")
     return SessionDetail(
         id=session.id,
+        status=session.status,
         started_at=session.started_at,
         duration_seconds=session.duration_seconds,
         voice=session.voice,
@@ -162,6 +244,20 @@ def read_session(session_id: str, store: Annotated[Store, Depends(get_store)]) -
         model=session.model,
         end_of_speech_sensitivity=session.end_of_speech_sensitivity,
         transcript=[TurnView(**turn.__dict__) for turn in session.turns],
+        stories=[
+            StoryView(
+                id=story.id,
+                title=story.title,
+                summary=story.summary,
+                life_stage=story.life_stage,
+                approx_period=story.approx_period,
+                people=story.people,
+                places=story.places,
+                quotes=[QuoteView(**q.__dict__) for q in story.quotes],
+            )
+            for story in store.stories_for_session(session_id)
+        ],
+        processing_error=session.processing_error,
     )
 
 

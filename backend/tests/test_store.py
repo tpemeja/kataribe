@@ -73,9 +73,11 @@ def test_sessions_are_listed_newest_first(tmp_path: Path) -> None:
         for _ in range(3)
     ]
 
-    listed = [session.id for session in store.list()]
+    listed = [session.id for session in store.list_sessions()]
 
     assert set(listed) == set(ids)
     assert listed == sorted(
-        listed, key=lambda i: next(s.started_at for s in store.list() if s.id == i), reverse=True
+        listed,
+        key=lambda i: next(s.started_at for s in store.list_sessions() if s.id == i),
+        reverse=True,
     )
