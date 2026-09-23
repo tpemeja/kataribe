@@ -182,15 +182,17 @@ So slice 5 needs the offsets from somewhere else — most likely a transcription
 
 ## Known prompt gaps
 
-Three places where the interviewer does not follow its own instructions. All are marked `xfail`, so the suite stays honest without being permanently red; they flip to `xpass` when fixed.
+Three places where the interviewer did not follow its own instructions. Two were wording faults and are addressed; one is open.
 
-| What it does | Rule it breaks | How often |
-| --- | --- | --- |
-| Recaps what it heard before asking | 相手の言葉を…まとめ直さないでください | intermittent |
-| States details the person never gave — a town when they named a region, a wrong given name | 言っていないことを、推測して補わないでください | intermittent |
-| Acknowledges a change of subject, then steers back to its own question | そのままついていってください | seen every time so far |
+| What it does | Status |
+| --- | --- |
+| Acknowledged a change of subject, then steered back to its own question | **Fixed.** The rule said 「戻す必要はありません」 — *no need* to go back, which reads as permission. Now it says do not go back, and that it is not the interviewer's job to steer. |
+| Stated details the person never gave — a town when they named a region, a wrong given name | **Improved.** The rule was abstract and never connected "don't fill in" to "so don't name a city". It now names that failure and asks the model to check each name, place and year against what was actually said before speaking. |
+| Recaps what it heard before asking | **Open.** Still observed: 「若い頃はずっと漁船に乗って働かれていたとのことですね」. Whether a 〜のですね confirmation reads as natural aizuchi or as presumptuous is a native speaker's call, so the rule is stated but not tightened further on a guess. |
 
-They are one problem, not three: the prompt is long and leans on negative instructions, which this model follows unreliably. Worth reworking as a whole rather than patching line by line — and worth doing before a first session with a real senior, because a transcript full of invented details poisons the story extraction that slice 3 builds on.
+What went wrong in the rewrite is worth keeping: making rule 2 absolute — *your next question comes from the last thing they said* — broke refusal handling, because the last thing Shigeru said **was** the refusal. A rule stated without its exception created a conflict with another rule. Rule 2 now carries the exception explicitly.
+
+Both fixes are confirmed on single runs, not on a distribution. These failures were intermittent to begin with, so the evidence is weaker than the test results suggest; a full judged run is needed to say more.
 
 ## Open questions
 

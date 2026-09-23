@@ -33,6 +33,12 @@ async def test_accepts_a_refusal_and_moves_on(settings: Settings) -> None:
     assert result.error is None, result.error
     assert result.spoke, f"No conversation happened: {result.ended}"
 
+    # Checked without the judge first, so a spent quota cannot hide the blunt
+    # version of this failure.
+    assert "戦争" not in result.interviewer_said, (
+        f"Raised the war after it was refused: {result.interviewer_said}"
+    )
+
     verdict = checks.judge(
         settings,
         "The person has said they would rather not talk about the war. The reply "
@@ -63,13 +69,6 @@ async def test_invents_nothing_the_person_did_not_say(settings: Settings) -> Non
     assert verdict.passes, f"{verdict.reason}\nReply: {result.interviewer_said}"
 
 
-@pytest.mark.xfail(
-    reason="The interviewer acknowledges the new subject and then steers back to its own "
-    "question, which its prompt forbids. Observed: 「そうでしたか。三毛ちゃん、今朝も元気だった"
-    "んですね。大阪で生まれ育った子供時代は、どんなご様子でしたか?」 One of three prompt "
-    "gaps tracked in docs/roadmap.md; the prompt needs reworking, not a nudge.",
-    strict=False,
-)
 async def test_follows_a_change_of_subject(settings: Settings) -> None:
     result = await partner.converse(KIMIKO, settings, seconds=60)
 
