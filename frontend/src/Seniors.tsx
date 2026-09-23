@@ -7,11 +7,21 @@ export interface Senior {
   birth_year: number | null;
   birthplace: string;
   family: string[];
+  language: string;
+}
+
+export interface Language {
+  code: string;
+  label: string;
+  endonym: string;
+  voice: string;
+  silence_duration_ms: number;
+  measured: boolean;
 }
 
 interface Props {
   selected: string | null;
-  onSelect: (id: string | null) => void;
+  onSelect: (senior: Senior | null) => void;
   disabled: boolean;
 }
 
@@ -20,12 +30,14 @@ interface Props {
  *  the wrong kanji for a name it has only ever heard. */
 export default function Seniors({ selected, onSelect, disabled }: Props) {
   const [seniors, setSeniors] = useState<Senior[] | null>(null);
+  const [languages, setLanguages] = useState<Language[]>([]);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState({
     name: '',
     name_reading: '',
     birth_year: '',
     birthplace: '',
+    language: 'ja',
   });
 
   // Once, on mount. Re-running this on every selection change reset the form
@@ -35,9 +47,13 @@ export default function Seniors({ selected, onSelect, disabled }: Props) {
       .then((r) => r.json())
       .then((list: Senior[]) => {
         setSeniors(list);
-        if (list.length > 0) onSelect(list[0].id);
+        if (list.length > 0) onSelect(list[0]);
       })
       .catch(() => setSeniors([]));
+    fetch('/api/languages')
+      .then((r) => r.json())
+      .then(setLanguages)
+      .catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -51,13 +67,14 @@ export default function Seniors({ selected, onSelect, disabled }: Props) {
         birth_year: draft.birth_year ? Number(draft.birth_year) : null,
         birthplace: draft.birthplace,
         family: [],
+        language: draft.language,
       }),
     });
     const created: Senior = await response.json();
     setSeniors([...(seniors ?? []), created]);
-    onSelect(created.id);
+    onSelect(created);
     setAdding(false);
-    setDraft({ name: '', name_reading: '', birth_year: '', birthplace: '' });
+    setDraft({ name: '', name_reading: '', birth_year: '', birthplace: '', language: 'ja' });
   };
 
   // Nothing is rendered until we know whether anyone exists, so the form and
@@ -69,6 +86,17 @@ export default function Seniors({ selected, onSelect, disabled }: Props) {
       <label className="interviewee">
         <span>Who is being interviewed</span>
         <div className="fields">
+          <select
+            value={draft.language}
+            onChange={(e) => setDraft({ ...draft, language: e.target.value })}
+          >
+            {languages.map((language) => (
+              <option key={language.code} value={language.code}>
+                {language.endonym}
+                {!language.measured && ' — for testing'}
+              </option>
+            ))}
+          </select>
           <input
             placeholder="お名前（漢字）"
             value={draft.name}
@@ -101,6 +129,14 @@ export default function Seniors({ selected, onSelect, disabled }: Props) {
         <small>
           The name is given to the interviewer rather than transcribed. Heard from audio alone it
           picks a plausible spelling — 佐藤茂 came back as 佐藤繁.
+          {draft.language !== 'ja' && (
+            <>
+              {' '}
+              French and English are for exercising the flow without a Japanese speaker. They say
+              nothing about honorific register or name spelling, which is where the real difficulty
+              is.
+            </>
+          )}
         </small>
       </label>
     );
@@ -117,13 +153,14 @@ export default function Seniors({ selected, onSelect, disabled }: Props) {
       <select
         value={selected ?? ''}
         disabled={disabled}
-        onChange={(e) => onSelect(e.target.value || null)}
+        onChange={(e) => onSelect(seniors.find((s) => s.id === e.target.value) ?? null)}
       >
         {seniors.map((senior) => (
           <option key={senior.id} value={senior.id}>
             {senior.name}
             {senior.birth_year ? ` · ${senior.birth_year}` : ''}
             {senior.birthplace ? ` · ${senior.birthplace}` : ''}
+            {senior.language !== 'ja' ? ` · ${senior.language}` : ''}
           </option>
         ))}
       </select>

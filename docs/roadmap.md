@@ -178,6 +178,20 @@ Stored turns carry a `started_at`, and it is honest about what it is: the moment
 
 So slice 5 needs the offsets from somewhere else — most likely a transcription pass over the stored recording during slice 3's processing, which would also be a second opinion on accuracy. `gemini-3.5-transcribe-live` is the obvious candidate to try first.
 
+## French and English are for testing, not for shipping
+
+The product is Japanese. French and English exist so the whole loop can be exercised without a Japanese speaker in the room: pick a language when creating a person, and the interview, the extraction and the planning all run in it.
+
+**What a green run in French tells you.** Turn-taking and interruption, whether it follows a change of subject, whether it backs off when refused, whether it invents details, whether it over-recaps, and that extraction, gaps, planning and cross-session memory work. That is most of the behaviour, and it can be judged by anyone who speaks the language.
+
+**What it does not tell you.** Honorific register has no French equivalent, and the kanji homophones that make a name come back misspelled do not exist outside Japanese — the defect does not get fixed there, it simply cannot occur. Neither does it say whether the Japanese sounds warm or stiff to a Japanese ear.
+
+So "it works in French" must never be read as "it works". The Japanese session with a native speaker is still the one that decides.
+
+**Settings are per language** for the same reason. Each language keeps its own voice and pause length, and only the Japanese pause figure was measured against real speech — the others are starting guesses, and the console says so when one is selected. A value that feels right in a French test cannot become the one an elderly Japanese speaker gets.
+
+The extraction and planning instructions are written once, in English, and told which language to write in. Three translated copies would drift apart, and the rules they carry — do not invent, do not paraphrase inside a quotation — are the same in any language. The Japanese live tests were run before and after that change to confirm the Japanese behaviour did not move.
+
 ## Known prompt gaps
 
 Measured with `tests/live/test_conversation.py`, which now runs a real multi-turn conversation. Before the harness fix below it only ever reached one exchange, so every earlier figure here described first-turn behaviour and has been discarded.

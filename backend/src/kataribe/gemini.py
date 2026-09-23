@@ -5,6 +5,7 @@ from google import genai
 from google.genai import types
 
 from kataribe.config import Settings
+from kataribe.languages import Language, get
 from kataribe.prompts import interviewer_instruction
 
 TOKEN_LIFETIME = datetime.timedelta(minutes=30)
@@ -30,13 +31,23 @@ END_SENSITIVITY = {
 
 @dataclass(frozen=True)
 class InterviewTuning:
+    """Defaults come from the language, not from here. The pause length that
+    suits an elderly Japanese speaker is not the one that suits a French one,
+    and only the Japanese figure has been measured — see languages.py."""
+
     voice: str = "Sulafat"
-    # Measured: at 3500ms the interviewer cut into a 2.5s pause for thought, and
-    # at 6000ms it sat through 4s. The gap the model sees is longer than the
-    # pause itself, so tolerating an N second silence needs roughly 2N. Erring
-    # towards waiting is the right error for someone recalling a memory.
     silence_duration_ms: int = 5000
     end_of_speech_sensitivity: str = "LOW"
+    language: str = "ja"
+
+    @classmethod
+    def for_language(cls, code: str | None) -> "InterviewTuning":
+        language = get(code)
+        return cls(
+            voice=language.voice,
+            silence_duration_ms=language.silence_duration_ms,
+            language=language.code,
+        )
 
 
 @dataclass(frozen=True)
@@ -50,7 +61,8 @@ def build_live_config(tuning: InterviewTuning, context: str = "") -> types.LiveC
     """`context` carries what is known about this particular person and what was
     said last time. Facts given here are not transcribed, which is how the
     interviewer stops guessing at the kanji in someone's name."""
-    instruction = interviewer_instruction()
+    language: Language = get(tuning.language)
+    instruction = interviewer_instruction(language)
     if context:
         instruction = f"{instruction}\n\n---\n\n{context}"
 
@@ -58,7 +70,7 @@ def build_live_config(tuning: InterviewTuning, context: str = "") -> types.LiveC
         response_modalities=[types.Modality.AUDIO],
         system_instruction=instruction,
         speech_config=types.SpeechConfig(
-            language_code="ja-JP",
+            language_code=language.locale,
             voice_config=types.VoiceConfig(
                 prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=tuning.voice)
             ),
@@ -70,9 +82,9 @@ def build_live_config(tuning: InterviewTuning, context: str = "") -> types.LiveC
         # on it — linking a quote to its audio needs a separate pass over the
         # stored recording.
         input_audio_transcription=types.AudioTranscriptionConfig(
-            language_codes=["ja-JP"], word_timestamp=True
+            language_codes=[language.locale], word_timestamp=True
         ),
-        output_audio_transcription=types.AudioTranscriptionConfig(language_codes=["ja-JP"]),
+        output_audio_transcription=types.AudioTranscriptionConfig(language_codes=[language.locale]),
         realtime_input_config=types.RealtimeInputConfig(
             automatic_activity_detection=types.AutomaticActivityDetection(
                 silence_duration_ms=tuning.silence_duration_ms,

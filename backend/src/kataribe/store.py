@@ -60,11 +60,12 @@ CREATE TABLE IF NOT EXISTS plans (
 
 # Added after the first sessions were recorded, so they arrive by migration.
 LATER_COLUMNS = {
+    "seniors": {"language": "TEXT NOT NULL DEFAULT 'ja'"},
     "sessions": {
         "senior_id": "TEXT",
         "status": "TEXT NOT NULL DEFAULT 'recorded'",
         "processing_error": "TEXT",
-    }
+    },
 }
 
 LIFE_STAGES = ("子供時代", "学校", "仕事", "結婚", "子育て", "晩年")
@@ -105,6 +106,7 @@ class Senior:
     birth_year: int | None
     birthplace: str
     family: list[str]
+    language: str = "ja"
 
 
 @dataclass(frozen=True)
@@ -163,12 +165,13 @@ class Store:
         birth_year: int | None = None,
         birthplace: str = "",
         family: list[str] | None = None,
+        language: str = "ja",
     ) -> str:
         senior_id = uuid.uuid4().hex[:12]
         with self._connect() as db:
             db.execute(
                 "INSERT INTO seniors (id, name, name_reading, birth_year, birthplace, family,"
-                " created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                " language, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     senior_id,
                     name,
@@ -176,6 +179,7 @@ class Store:
                     birth_year,
                     birthplace,
                     json.dumps(family or [], ensure_ascii=False),
+                    language,
                     datetime.now(UTC).isoformat(),
                 ),
             )
@@ -186,6 +190,8 @@ class Store:
             row = db.execute("SELECT * FROM seniors WHERE id = ?", (senior_id,)).fetchone()
         if row is None:
             return None
+        # `in` on a Row searches values, so the column list is taken explicitly.
+        columns = row.keys()
         return Senior(
             id=row["id"],
             name=row["name"],
@@ -193,6 +199,7 @@ class Store:
             birth_year=row["birth_year"],
             birthplace=row["birthplace"],
             family=json.loads(row["family"]),
+            language=row["language"] if "language" in columns else "ja",
         )
 
     def list_seniors(self) -> list[Senior]:

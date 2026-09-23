@@ -14,6 +14,7 @@ from google.genai import types
 from pydantic import BaseModel, Field
 
 from kataribe.config import Settings
+from kataribe.languages import Language, get
 from kataribe.store import LIFE_STAGES, Plan, Quote, Senior, Story, Turn
 
 NOISE = re.compile(r"[\s、。「」『』・,.!?！？…ー]")
@@ -64,31 +65,39 @@ def _who(senior: Senior) -> str:
     return "\n".join(facts)
 
 
-def extract(settings: Settings, senior: Senior, turns: list[Turn]) -> Extraction:
+def extract(
+    settings: Settings, senior: Senior, turns: list[Turn], language: Language | None = None
+) -> Extraction:
+    """Instructions are in English; what it writes is in the language spoken.
+
+    One set of instructions rather than one per language: the rules here are
+    about not inventing things, which is the same rule everywhere, and three
+    copies would drift apart.
+    """
+    spoken = language or get(senior.language)
     client = genai.Client(api_key=settings.gemini_api_key)
     response = client.models.generate_content(
         model=settings.text_model,
         contents=(
-            "次は、お年寄りの人生の物語を伺った会話の記録です。\n"
-            "この会話から、その方の人生の出来事を取り出してください。\n\n"
-            f"=== この方について（確かな事実）===\n{_who(senior)}\n\n"
-            f"=== 会話 ===\n{_numbered(turns)}\n\n"
-            "=== 取り出し方 ===\n"
-            "- 話し手が実際に語ったことだけを書いてください。聞き手の言葉は使わないでください。\n"
-            "- 会話に出てこないことを、推測して補わないでください。\n"
-            "- title と summary にも、話し手が使った言葉をそのまま使ってください。\n"
-            "  「実家」「故郷」「生家」のように、話し手が使っていない言葉で\n"
-            "  言いかえないでください。\n"
-            "  人や物のつながりを、勝手に決めつけないでください。\n"
-            "  たとえば『父の工場』と言われたなら『父の工場』であって、\n"
-            "  『実家の工場』ではありません。\n"
-            "- quotes には、話し手が言ったとおりの言葉を、一字も変えずに入れてください。\n"
-            "  要約したり、言い換えたりしないでください。\n"
-            f"- life_stage は次のどれかにしてください: {'、'.join(LIFE_STAGES)}\n"
-            "- approx_period は「昭和二十年ごろ」のような、会話から分かる範囲で結構です。\n"
-            "  分からなければ空にしてください。\n"
-            "- まだ何も語られていなければ、stories は空にしてください。\n"
-            "- refused_topics には、話したくないと言われた話題を入れてください。"
+            "Below is a recorded conversation in which an elderly person was "
+            "asked about their life. Pull out the events of their life from it.\n\n"
+            f"=== About this person (established facts) ===\n{_who(senior)}\n\n"
+            f"=== The conversation ===\n{_numbered(turns)}\n\n"
+            "=== How to do it ===\n"
+            f"- Write everything in {spoken.label}, the language they spoke.\n"
+            "- Only what the speaker actually said. Never the interviewer's words.\n"
+            "- Do not fill in anything the conversation does not contain.\n"
+            "- The title and summary must use the speaker's own words too. Do not\n"
+            "  swap in a word they did not use, and do not assert a relationship\n"
+            "  they did not state: if they said 'my father's factory' then it is\n"
+            "  'my father's factory', not 'the family home's factory'.\n"
+            "- quotes must be the speaker's words exactly, not one character\n"
+            "  changed. Never summarise or paraphrase inside a quote.\n"
+            f"- life_stage must be one of: {', '.join(LIFE_STAGES)}\n"
+            "- approx_period as far as the conversation shows it, and empty if\n"
+            "  it does not.\n"
+            "- If nothing has been told yet, leave stories empty.\n"
+            "- refused_topics: anything they said they did not want to discuss."
         ),
         config=types.GenerateContentConfig(
             response_mime_type="application/json",
@@ -139,11 +148,16 @@ def verify(extraction: Extraction, turns: list[Turn]) -> tuple[list[Story], list
 
 
 def plan_next(
-    settings: Settings, senior: Senior, stories: list[Story], avoid: list[str]
+    settings: Settings,
+    senior: Senior,
+    stories: list[Story],
+    avoid: list[str],
+    language: Language | None = None,
 ) -> NextPlan:
+    spoken = language or get(senior.language)
     told = (
         "\n".join(f"- [{s.life_stage}] {s.title}: {s.summary}" for s in stories)
-        or "（まだ何も伺っていません）"
+        or "(nothing has been told yet)"
     )
     thin = [stage for stage in LIFE_STAGES if not any(s.life_stage == stage for s in stories)]
 
@@ -151,23 +165,24 @@ def plan_next(
     response = client.models.generate_content(
         model=settings.text_model,
         contents=(
-            "お年寄りの人生の物語を、少しずつ伺っています。\n"
-            "次にお会いしたときに何を伺うか、考えてください。\n\n"
-            f"=== この方について ===\n{_who(senior)}\n\n"
-            f"=== これまでに伺ったお話 ===\n{told}\n\n"
-            f"=== まだ伺っていない時期 ===\n{'、'.join(thin) or 'なし'}\n\n"
-            f"=== 触れてはいけない話題 ===\n{'、'.join(avoid) or 'なし'}\n\n"
-            "=== お願い ===\n"
-            "- story_so_far: これまでのお話を、二、三文でまとめてください。\n"
-            "  次の会のはじめに『前回は〜のお話を伺いました』と言うために使います。\n"
-            "  上に書かれていることだけを使ってください。\n"
-            "  情景を想像して付け足したり、感想や評価を書いたりしないでください。\n"
-            "  「印象的でした」「豊かな自然に囲まれた」のような、\n"
-            "  ご本人が言っていない言葉は、ぜったいに入れないでください。\n"
-            "- next_questions: 次に伺いたいことを三つ、日本語の短い質問文で。\n"
-            "  まだ伺っていない時期や、名前だけ出てまだ語られていない方を優先してください。\n"
-            "  触れてはいけない話題には、けっして触れないでください。\n"
-            "  ひとつの質問で聞くことは、ひとつだけにしてください。"
+            "An elderly person's life story is being collected a little at a "
+            "time. Decide what to ask about when you next sit with them.\n\n"
+            f"=== About this person ===\n{_who(senior)}\n\n"
+            f"=== What they have told us so far ===\n{told}\n\n"
+            f"=== Periods not yet covered ===\n{', '.join(thin) or 'none'}\n\n"
+            f"=== Topics never to raise ===\n{', '.join(avoid) or 'none'}\n\n"
+            "=== What to write ===\n"
+            f"- Write everything in {spoken.label}, the language they speak.\n"
+            "- story_so_far: two or three sentences covering what they have told\n"
+            "  us, used to open the next session with 'last time you told me\n"
+            "  about...'. Use only what is written above. Do not imagine a scene,\n"
+            "  and do not add an impression or an evaluation. Words like 'it was\n"
+            "  very moving' or 'surrounded by rich nature' must never appear\n"
+            "  unless they said them.\n"
+            "- next_questions: three short questions. Prefer the periods not yet\n"
+            "  covered, and people who have been named but not yet described.\n"
+            "  Never touch a topic listed above as never to raise.\n"
+            "  One question asks one thing."
         ),
         config=types.GenerateContentConfig(
             response_mime_type="application/json",

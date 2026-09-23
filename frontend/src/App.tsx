@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import './App.css';
 import { startInterview, type Interview, type Phase, type Speaker, type Tuning } from './interview';
-import Seniors from './Seniors';
+import Seniors, { type Language, type Senior } from './Seniors';
 import Sessions from './Sessions';
 
 interface Entry {
@@ -39,12 +39,17 @@ export default function App() {
   const [turn, setTurn] = useState<Phase>('listening');
   const [replay, setReplay] = useState<File | null>(null);
   const [view, setView] = useState<'interview' | 'sessions'>('interview');
-  const [seniorId, setSeniorId] = useState<string | null>(null);
+  const [senior, setSenior] = useState<Senior | null>(null);
+  const [languages, setLanguages] = useState<Language[]>([]);
 
   const interview = useRef<Interview | null>(null);
   const transcriptEnd = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    fetch('/api/languages')
+      .then((r) => r.json())
+      .then(setLanguages)
+      .catch(() => undefined);
     fetch('/api/voices')
       .then((r) => r.json())
       .then(setVoices)
@@ -61,6 +66,20 @@ export default function App() {
   useEffect(() => {
     transcriptEnd.current?.scrollIntoView({ behavior: 'smooth' });
   }, [entries]);
+
+  useEffect(() => {
+    // Adopt the language's own defaults when the person changes. Carrying a
+    // value over from a French test into a Japanese session is exactly what
+    // per-language defaults exist to prevent.
+    const language = languages.find((l) => l.code === (senior?.language ?? 'ja'));
+    if (language) {
+      setTuning((current) => ({
+        ...current,
+        voice: language.voice,
+        silenceDurationMs: language.silence_duration_ms,
+      }));
+    }
+  }, [senior, languages]);
 
   const appendTranscript = (speaker: Speaker, delta: string) => {
     setEntries((current) => {
@@ -95,7 +114,7 @@ export default function App() {
           },
         },
         replay ?? undefined,
-        seniorId,
+        senior?.id ?? null,
       );
       setPhase('live');
     } catch (error) {
@@ -118,6 +137,7 @@ export default function App() {
     setPhase('idle');
   };
 
+  const currentLanguage = languages.find((l) => l.code === (senior?.language ?? 'ja'));
   const busy = phase === 'starting' || phase === 'stopping';
   const live = phase === 'live';
 
@@ -152,7 +172,7 @@ export default function App() {
       {view === 'interview' && (
         <>
           <section className="controls">
-            <Seniors selected={seniorId} onSelect={setSeniorId} disabled={live || busy} />
+            <Seniors selected={senior?.id ?? null} onSelect={setSenior} disabled={live || busy} />
 
             <label>
               <span>Voice</span>
@@ -189,8 +209,19 @@ export default function App() {
                 }
               />
               <small>
-                The model's own default is 800 ms. Measured here: 3500 ms still cuts into a 2.5 s
-                pause, 6000 ms sits through 4 s. Budget roughly double the pause you want tolerated.
+                {currentLanguage && !currentLanguage.measured ? (
+                  <>
+                    Nobody has measured this for {currentLanguage.label}. The Japanese default came
+                    from a real test; this is a starting guess, and a value that feels right here
+                    says nothing about Japanese speech.
+                  </>
+                ) : (
+                  <>
+                    The model's own default is 800 ms. Measured here: 3500 ms still cuts into a 2.5
+                    s pause, 6000 ms sits through 4 s. Budget roughly double the pause you want
+                    tolerated.
+                  </>
+                )}
               </small>
             </label>
 

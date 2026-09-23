@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from kataribe import brain
 from kataribe.config import Settings, get_settings
 from kataribe.gemini import VOICES, InterviewTuning, mint_session_credentials
+from kataribe.languages import LANGUAGES
 from kataribe.processing import process_session
 from kataribe.store import Store, Turn
 
@@ -27,12 +28,22 @@ def get_store(settings: Annotated[Settings, Depends(get_settings)]) -> Store:
     return _store(str(settings.data_dir))
 
 
+class LanguageView(BaseModel):
+    code: str
+    label: str
+    endonym: str
+    voice: str
+    silence_duration_ms: int
+    measured: bool
+
+
 class SeniorRequest(BaseModel):
     name: str
     name_reading: str = ""
     birth_year: int | None = None
     birthplace: str = ""
     family: list[str] = Field(default_factory=list)
+    language: str = "ja"
 
 
 class SeniorView(SeniorRequest):
@@ -62,9 +73,12 @@ class PlanView(BaseModel):
 
 
 class SessionRequest(BaseModel):
+    """Unset tuning falls back to the language's own defaults, so a value found
+    while testing in French never becomes the one a Japanese speaker gets."""
+
     senior_id: str | None = None
-    voice: str = "Sulafat"
-    silence_duration_ms: int = Field(default=5000, ge=200, le=8000)
+    voice: str | None = None
+    silence_duration_ms: int | None = Field(default=None, ge=200, le=8000)
     end_of_speech_sensitivity: Literal["LOW", "HIGH"] = "LOW"
 
 
@@ -77,6 +91,7 @@ class SessionResponse(BaseModel):
     expires_at: datetime.datetime
     voice: str
     silence_duration_ms: int
+    language: str
 
 
 class TurnView(BaseModel):
@@ -110,6 +125,11 @@ def list_voices() -> dict[str, str]:
     return VOICES
 
 
+@router.get("/languages")
+def list_languages() -> list[LanguageView]:
+    return [LanguageView(**language.__dict__) for language in LANGUAGES.values()]
+
+
 @router.get("/seniors")
 def list_seniors(store: Annotated[Store, Depends(get_store)]) -> list[SeniorView]:
     return [SeniorView(**senior.__dict__) for senior in store.list_seniors()]
@@ -136,24 +156,29 @@ def create_session(
 ) -> SessionResponse:
     if not settings.gemini_api_key:
         raise HTTPException(status_code=503, detail="KATARIBE_GEMINI_API_KEY is not configured")
-    if request.voice not in VOICES:
+    if request.voice is not None and request.voice not in VOICES:
         raise HTTPException(status_code=422, detail=f"Unknown voice: {request.voice}")
 
-    tuning = InterviewTuning(
-        voice=request.voice,
-        silence_duration_ms=request.silence_duration_ms,
-        end_of_speech_sensitivity=request.end_of_speech_sensitivity,
-    )
     # What the interviewer already knows about this person, and what it meant to
     # ask today. Locked into the token with everything else.
     context = ""
     plan = None
+    senior = None
     if request.senior_id:
         senior = store.get_senior(request.senior_id)
         if senior is None:
             raise HTTPException(status_code=404, detail=f"No senior {request.senior_id}")
         plan = store.get_plan(senior.id)
         context = brain.context_for(senior, plan)
+
+    # The person's language decides the prompt, the locale and the defaults.
+    base = InterviewTuning.for_language(senior.language if senior else None)
+    tuning = InterviewTuning(
+        voice=request.voice or base.voice,
+        silence_duration_ms=request.silence_duration_ms or base.silence_duration_ms,
+        end_of_speech_sensitivity=request.end_of_speech_sensitivity,
+        language=base.language,
+    )
 
     credentials = mint_session_credentials(settings, tuning, context)
     session_id = store.start(
@@ -173,6 +198,7 @@ def create_session(
         expires_at=credentials.expires_at,
         voice=tuning.voice,
         silence_duration_ms=tuning.silence_duration_ms,
+        language=tuning.language,
     )
 
 
