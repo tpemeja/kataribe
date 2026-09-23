@@ -17,6 +17,7 @@ from google.genai import types
 
 from kataribe.config import Settings
 from kataribe.gemini import InterviewTuning, mint_session_credentials
+from tests.live import speech
 from tests.live.connection import live_client
 from tests.live.personas import Persona
 
@@ -51,11 +52,16 @@ class Wire:
         self._since: float | None = None
 
     def push(self, pcm: bytes) -> None:
+        """Audio straight from a model, at its 24 kHz output rate."""
         self._raw += pcm
         usable = len(self._raw) // 6 * 6
         if usable:
             self._ready += _downsample(bytes(self._raw[:usable]))
             del self._raw[:usable]
+
+    def push_pcm(self, pcm: bytes) -> None:
+        """Audio already at the 16 kHz rate we send."""
+        self._ready += pcm
 
     def take(self, size: int, now: float) -> bytes:
         speaking = len(self._ready) > 0
@@ -82,8 +88,18 @@ class Wire:
 
 
 @dataclass
+class Utterance:
+    speaker: str
+    text: str = ""
+
+
+@dataclass
 class Exchange:
     persona: Persona
+    # Ordered, one entry per turn. Judging a whole side at once hid a real
+    # problem: an opening greeting was being graded against a criterion about
+    # following a change of subject that had not happened yet.
+    utterances: list["Utterance"] = field(default_factory=list)
     senior_said: str = ""
     interviewer_said: str = ""
     senior_intervals: list[tuple[float, float]] = field(default_factory=list)
@@ -99,6 +115,18 @@ class Exchange:
     @property
     def spoke(self) -> bool:
         return bool(self.senior_said and self.interviewer_said)
+
+    def last(self, speaker: str) -> str:
+        """The most recent complete turn from one side."""
+        for utterance in reversed(self.utterances):
+            if utterance.speaker == speaker and utterance.text.strip():
+                return utterance.text
+        return ""
+
+    def script(self) -> str:
+        """The conversation in order, for a judge that needs to see who said what."""
+        names = {"senior": self.persona.name, "interviewer": "聞き手"}
+        return "\n".join(f"{names[u.speaker]}: {u.text}" for u in self.utterances if u.text.strip())
 
     def overlaps(self, gap: float = 0.25) -> list[tuple[float, float]]:
         """Moments the interviewer was talking while the interviewee still was."""
@@ -182,12 +210,24 @@ async def converse(
                 await asyncio.sleep(FRAME_BYTES / 2 / SEND_RATE)
 
         async def listen(session: object, into: Wire, side: str) -> None:
+            # receive() completes at the end of a turn rather than running for
+            # the life of the session. Without re-entering it, each side
+            # answered exactly once and the conversation stopped at two turns.
+            while True:
+                await _listen_once(session, into, side)
+
+        async def _listen_once(session: object, into: Wire, side: str) -> None:
+            speaking = False
             async for message in session.receive():  # type: ignore[attr-defined]
                 content = message.server_content
                 if content is None:
                     continue
                 if content.output_transcription and content.output_transcription.text:
                     text = content.output_transcription.text
+                    if not speaking:
+                        result.utterances.append(Utterance(speaker=side))
+                        speaking = True
+                    result.utterances[-1].text += text
                     if side == "senior":
                         result.senior_said += text
                     else:
@@ -195,14 +235,14 @@ async def converse(
                 for part in (content.model_turn.parts or []) if content.model_turn else []:
                     if part.inline_data and part.inline_data.data:
                         into.push(part.inline_data.data)
+                if content.turn_complete:
+                    speaking = False
 
-        # The interviewer cannot be nudged with text — its session runs on a
-        # constrained token, which rejects client content. The interviewee opens
-        # instead, as someone sitting down and saying hello would.
-        await senior.send_client_content(
-            turns=[{"role": "user", "parts": [{"text": "こんにちは。お話を聞かせてください。"}]}],
-            turn_complete=True,
-        )
+        # Start the conversation with a synthesized hello played to the
+        # interviewer, so both sides only ever see realtime audio. Seeding the
+        # interviewee with client content instead left its turn state such that
+        # it answered once and then went silent for the rest of the session.
+        to_interviewer.push_pcm(speech.synthesize("こんにちは。"))
 
         async def guard(label: str, work: object) -> None:
             try:

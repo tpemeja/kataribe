@@ -56,8 +56,6 @@ Prototype deadline **2026-10-18**. A real senior tests from week 2.
 - [x] **0 — Walking skeleton**
 - [~] **1 — It talks** — built; waiting on a live test with a Japanese speaker
 - [x] **2 — It remembers the session** — sessions, transcripts and audio stored and replayable
-
-- [ ] 2 — It remembers the session
 - [ ] 3 — It has a brain
 - [ ] 4 — It notices you
 - [ ] 5 — It asks permission
@@ -182,17 +180,24 @@ So slice 5 needs the offsets from somewhere else — most likely a transcription
 
 ## Known prompt gaps
 
-Three places where the interviewer did not follow its own instructions. Two were wording faults and are addressed; one is open.
+Measured with `tests/live/test_conversation.py`, which now runs a real multi-turn conversation. Before the harness fix below it only ever reached one exchange, so every earlier figure here described first-turn behaviour and has been discarded.
 
 | What it does | Status |
 | --- | --- |
-| Acknowledged a change of subject, then steered back to its own question | **Fixed.** The rule said 「戻す必要はありません」 — *no need* to go back, which reads as permission. Now it says do not go back, and that it is not the interviewer's job to steer. |
-| Stated details the person never gave — a town when they named a region, a wrong given name | **Improved.** The rule was abstract and never connected "don't fill in" to "so don't name a city". It now names that failure and asks the model to check each name, place and year against what was actually said before speaking. |
-| Recaps what it heard before asking | **Open.** Still observed: 「若い頃はずっと漁船に乗って働かれていたとのことですね」. Whether a 〜のですね confirmation reads as natural aizuchi or as presumptuous is a native speaker's call, so the rule is stated but not tightened further on a guess. |
+| Raises a refused topic again | **Fixed.** Broken by the prompt rewrite itself, then fixed by giving rule 2 its exception. |
+| Steers back instead of following a change of subject | **Mostly works.** Over nine turns it followed her from sunbathing to the weather to the department store to the neighbour to the cat, then repeated an earlier question once. A lapse rather than a rule it ignores. |
+| Uses the wrong kanji for a name | **Open, and the sharpest of these.** He introduced himself as 佐藤**茂**; the interviewer called him 佐藤**繁**. Both read *Shigeru*. The model hears the sound and picks a plausible spelling. A memoir that misspells a grandfather's name is a serious defect, and no instruction in the prompt can reliably fix a homophone — this likely needs the name supplied as a seed fact rather than transcribed. |
+| Recaps what it heard before asking | **Open**, and a native speaker's call: whether 〜のですね reads as natural aizuchi or as presumptuous is not something the harness can settle. |
 
-What went wrong in the rewrite is worth keeping: making rule 2 absolute — *your next question comes from the last thing they said* — broke refusal handling, because the last thing Shigeru said **was** the refusal. A rule stated without its exception created a conflict with another rule. Rule 2 now carries the exception explicitly.
+Note that a per-conversation pass rate is harsher than a per-turn one: nine turns give four or five chances to slip, so one lapse fails the whole run.
 
-Both fixes are confirmed on single runs, not on a distribution. These failures were intermittent to begin with, so the evidence is weaker than the test results suggest; a full judged run is needed to say more.
+### The harness was only testing the first exchange
+
+Worth recording, because every conversational figure reported before this was wrong.
+
+`session.receive()` completes at the end of a turn rather than running for the life of the session. The listener task therefore exited after one turn and stopped forwarding audio, so each side answered exactly once and the conversation stopped dead at two turns. Re-entering `receive()` in a loop fixes it: the same 130 second run went from 2 turns to 9.
+
+Two smaller faults fell out of the same investigation. The interviewee was seeded with `send_client_content`, and mixing that with realtime audio left its turn state such that it never spoke again — it is now started with a synthesized hello played to the interviewer, so both sides only ever see audio. And the hesitancy instruction was being given to every persona, which made their turns so long that no conversation reached a second exchange; it now belongs only to the persona whose test is about patience.
 
 ## Open questions
 

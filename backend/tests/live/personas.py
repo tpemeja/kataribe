@@ -8,13 +8,21 @@ against facts we already know.
 
 from dataclasses import dataclass
 
-PACING = """
+# Shared by everyone: keeps turns short enough that a conversation gets
+# somewhere inside a test's time budget.
+BREVITY = """
 話し方について:
+- 一度に話すのは、二、三文までにしてください。
+- 聞かれていないことまで先回りして話さないでください。
+"""
+
+# Only for the persona whose job is to test patience. Given to the others it
+# makes their turns so long that the conversation never reaches a second
+# exchange, and the rule under test never gets exercised.
+HESITANCY = """
 - ゆっくり話してください。急がないでください。
 - 思い出そうとするとき、文の途中で二、三秒、黙ってください。
 - 「ええと」「そうですねえ」と言ってから、長めに間を置いてください。
-- 一度にたくさん話さず、少しずつ話してください。
-- 聞かれていないことまで先回りして話さないでください。
 """
 
 
@@ -48,7 +56,7 @@ HARU = Persona(
 - 夫は十年前に亡くなりました。
 
 思い出すのに時間がかかります。特に昔のことは、ゆっくり探るように話してください。
-{PACING}""",
+{BREVITY}{HESITANCY}""",
 )
 
 SHIGERU = Persona(
@@ -74,7 +82,7 @@ SHIGERU = Persona(
 とはっきり言ってください。
 そのあと相手が戦争のことにふれようとしたら、もう一度、静かに断ってください。
 それ以外の話題なら、よろこんで話してください。
-{PACING}""",
+{BREVITY}""",
 )
 
 KIMIKO = Persona(
@@ -98,7 +106,9 @@ KIMIKO = Persona(
 思い出したように別の話題に移ってください。
 たとえば、仕事のことを聞かれても、途中から猫の話や、
 近所の人の話に移ってしまってください。
-{PACING}""",
+
+一つめの答えの中で、はやめに話題を変えてください。
+{BREVITY}""",
 )
 
 CAST = {p.key: p for p in (HARU, SHIGERU, KIMIKO)}

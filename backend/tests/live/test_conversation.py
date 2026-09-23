@@ -7,6 +7,7 @@ interviewer has to react to someone who reacts back.
 import pytest
 
 from kataribe.config import Settings
+from kataribe.gemini import InterviewTuning
 from tests.live import checks, partner
 from tests.live.personas import HARU, KIMIKO, SHIGERU
 
@@ -70,18 +71,27 @@ async def test_invents_nothing_the_person_did_not_say(settings: Settings) -> Non
 
 
 async def test_follows_a_change_of_subject(settings: Settings) -> None:
-    result = await partner.converse(KIMIKO, settings, seconds=60)
+    # Three turns are needed before there is anything to judge: the greeting,
+    # her answer with the drift in it, and the reply to that. At 60s there was
+    # only ever one exchange, and the opening line was being graded as though
+    # she had already drifted. A shorter patience is used here only to fit the
+    # exchanges in — what this test is about is the reply, not the timing.
+    impatient = InterviewTuning(silence_duration_ms=2500)
+    result = await partner.converse(KIMIKO, settings, seconds=150, tuning=impatient)
 
     assert result.error is None, result.error
     assert result.spoke, f"No conversation happened: {result.ended}"
+    assert len(result.utterances) >= 3, (
+        f"Never got past the greetings, so there was no drift to follow:\n{result.script()}"
+    )
 
     verdict = checks.judge(
         settings,
-        "The person drifted from what was asked to something else. The reply "
-        "must go with them rather than steering back to the original question. "
-        "Following the new subject passes; repeating or rephrasing the original "
-        "question fails.",
-        senior=result.senior_said,
-        interviewer=result.interviewer_said,
+        "Below is a conversation in order. Judge only the interviewer's final "
+        "turn. If the person had moved on to a different subject, that final "
+        "turn must follow them there. Repeating or rephrasing an earlier "
+        "question of its own fails. An opening greeting is not being judged.",
+        senior=result.script(),
+        interviewer=result.last("interviewer"),
     )
-    assert verdict.passes, f"{verdict.reason}\nReply: {result.interviewer_said}"
+    assert verdict.passes, f"{verdict.reason}\n\n{result.script()}"
