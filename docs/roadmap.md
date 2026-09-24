@@ -192,6 +192,33 @@ So "it works in French" must never be read as "it works". The Japanese session w
 
 The extraction and planning instructions are written once, in English, and told which language to write in. Three translated copies would drift apart, and the rules they carry — do not invent, do not paraphrase inside a quotation — are the same in any language. The Japanese live tests were run before and after that change to confirm the Japanese behaviour did not move.
 
+## The interviewer speaks first
+
+Nobody should have to work out that they are meant to start, least of all someone sitting in front of a device they did not ask for. When a session opens, a short stage direction is sent — "they have just sat down, speak to them gently" — and the interviewer greets them. It is never spoken aloud and never reaches the transcript.
+
+**It has to be sent as realtime input, not as client content.** A `sendClientContent` turn produces a perfectly good greeting and then leaves the session deaf: it stops answering the audio that follows, and sometimes closes outright with 1006. `sendRealtimeInput({ text })` greets just as well and the conversation continues normally.
+
+This was already known and forgotten. The sparring harness carries a comment saying that seeding the interviewee with client content left it answering once and then silent — and the same mechanism was then used in the product, where it broke two browser tests before anyone noticed.
+
+Worth recording alongside it: an earlier finding that client content returns 1007 on a locked token was wrong. That was `enable_affective_dialog`, which was set at the time. A capability was written off on the strength of a test polluted by a different bug.
+
+## Making it sound like a conversation
+
+The first French session was reported as stiff, slow, and relentlessly interrogative. A sparring run showed exactly that — four turns, every one of them the same shape:
+
+> そうでしたか。…もう少しお聞かせいただけますか。
+> そうですか。…どんなお料理にされるのですか。
+> そうでしたか。…もう少し伺ってもよいですか。
+> そうでしたか。…どんな料理に使われたのですか。
+
+Acknowledge, then ask. Every time, with the same acknowledgement. The prompt told it to keep acknowledgements short but never said a turn was *allowed* to be only an acknowledgement, so it always asked.
+
+Three changes, in all three languages: a turn may end without a question, the same acknowledgement must not be reused, and a reaction should say what it did to you rather than repeat what was said. French also dropped from 2500 ms to 1500 ms, and its prompt was told to drop the ceremonious constructions.
+
+The same run afterwards: six turns, three of them with no question at all, and the acknowledgements varied — 「それは立派な柿ですね」「まあ、それは愛らしいですね」.
+
+One tension came with it. Some of those warmer reactions — 「ミケちゃん、お腹が空いた時間なんですね」 — are light restatements, which rule 3 forbids. Whether 〜なんですね reads as warm aizuchi or as parroting is the same native-speaker question that is still open below.
+
 ## Known prompt gaps
 
 Measured with `tests/live/test_conversation.py`, which now runs a real multi-turn conversation. Before the harness fix below it only ever reached one exchange, so every earlier figure here described first-turn behaviour and has been discarded.

@@ -36,6 +36,7 @@ interface SessionResponse {
   token: string;
   model: string;
   resuming: boolean;
+  opening: string;
 }
 
 export async function startInterview(
@@ -59,7 +60,13 @@ export async function startInterview(
   if (!response.ok) {
     throw new Error(`Could not start a session (${response.status}): ${await response.text()}`);
   }
-  const { session_id: sessionId, token, model, resuming }: SessionResponse = await response.json();
+  const {
+    session_id: sessionId,
+    token,
+    model,
+    resuming,
+    opening,
+  }: SessionResponse = await response.json();
 
   const playback = new Playback();
   const ai = new GoogleGenAI({ apiKey: token, httpOptions: { apiVersion: 'v1alpha' } });
@@ -133,6 +140,16 @@ export async function startInterview(
         callbacks.onClosed(`Closed ${event.code}: ${event.reason || 'no reason given'}`),
     },
   });
+
+  // The interviewer speaks first. A stage direction rather than words put in
+  // anyone's mouth: it is not spoken aloud and never reaches the transcript,
+  // it just tells the model the person has sat down.
+  //
+  // Realtime input, not sendClientContent. A client-content turn gets a polite
+  // greeting and then leaves the session deaf: it stops answering the audio
+  // that follows, and sometimes closes outright. Staying on the realtime path
+  // keeps the conversation alive.
+  if (opening) session.sendRealtimeInput({ text: opening });
 
   const source = replay ? await recording(replay) : await microphone();
 

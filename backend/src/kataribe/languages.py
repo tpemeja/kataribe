@@ -29,6 +29,11 @@ class Language:
     measured: bool
     """Whether silence_duration_ms came from a measurement or is a starting guess."""
 
+    opening: str
+    """A stage direction sent when the session opens, so the interviewer speaks
+    first rather than waiting to be spoken to. Nobody should have to work out
+    that they are meant to start."""
+
 
 LANGUAGES: dict[str, Language] = {
     "ja": Language(
@@ -42,6 +47,7 @@ LANGUAGES: dict[str, Language] = {
         # through 4s. See docs/roadmap.md.
         silence_duration_ms=5000,
         measured=True,
+        opening="（その方が席につかれました。こちらから、やさしく声をかけてください。）",
     ),
     "fr": Language(
         code="fr",
@@ -51,9 +57,11 @@ LANGUAGES: dict[str, Language] = {
         prompt_file="interviewer_fr.md",
         voice="Sulafat",
         # A starting point, not a measurement. Nobody has run the pause test
-        # against French speech.
-        silence_duration_ms=2500,
+        # against French speech; this was lowered from 2500 because the wait
+        # between turns felt dead, and French is only ever used for testing.
+        silence_duration_ms=1500,
         measured=False,
+        opening="(La personne vient de s'asseoir. Adressez-lui la parole doucement.)",
     ),
     "en": Language(
         code="en",
@@ -64,6 +72,7 @@ LANGUAGES: dict[str, Language] = {
         voice="Sulafat",
         silence_duration_ms=2500,
         measured=False,
+        opening="(They have just sat down. Speak to them gently, first.)",
     ),
 }
 

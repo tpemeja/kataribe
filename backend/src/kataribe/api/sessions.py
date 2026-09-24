@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from kataribe import brain
 from kataribe.config import Settings, get_settings
 from kataribe.gemini import VOICES, InterviewTuning, mint_session_credentials
-from kataribe.languages import LANGUAGES
+from kataribe.languages import LANGUAGES, get
 from kataribe.processing import process_session
 from kataribe.store import Store, Turn
 
@@ -92,6 +92,7 @@ class SessionResponse(BaseModel):
     voice: str
     silence_duration_ms: int
     language: str
+    opening: str
 
 
 class TurnView(BaseModel):
@@ -199,6 +200,7 @@ def create_session(
         voice=tuning.voice,
         silence_duration_ms=tuning.silence_duration_ms,
         language=tuning.language,
+        opening=get(tuning.language).opening,
     )
 
 
