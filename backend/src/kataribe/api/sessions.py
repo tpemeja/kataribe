@@ -12,7 +12,7 @@ from kataribe.config import Settings, get_settings
 from kataribe.gemini import VOICES, InterviewTuning, mint_session_credentials
 from kataribe.languages import LANGUAGES, get
 from kataribe.processing import process_session
-from kataribe.store import Store, Turn
+from kataribe.store import LIFE_STAGES, Store, Turn
 
 router = APIRouter(prefix="/api", tags=["sessions"])
 
@@ -64,6 +64,39 @@ class StoryView(BaseModel):
     people: list[str]
     places: list[str]
     quotes: list[QuoteView]
+    visibility: str = "private"
+    consent_quote: str = ""
+
+
+class FamilyQuoteView(QuoteView):
+    session_id: str
+    # Roughly where in the recording this turn began. Transcripts arrive at the
+    # end of a turn, so the previous turn's timestamp is the closest thing we
+    # have to a start. Word-level offsets are not returned by the model.
+    seek_seconds: float
+
+
+class FamilyStoryView(BaseModel):
+    id: str
+    title: str
+    summary: str
+    life_stage: str
+    approx_period: str
+    people: list[str]
+    places: list[str]
+    quotes: list[FamilyQuoteView]
+
+
+class FamilyChapter(BaseModel):
+    life_stage: str
+    stories: list[FamilyStoryView]
+
+
+class FamilyView(BaseModel):
+    senior: SeniorView
+    chapters: list[FamilyChapter]
+    withheld: int
+    """Stories the person has not agreed to share. Counted, never shown."""
 
 
 class PlanView(BaseModel):
@@ -282,11 +315,82 @@ def read_session(session_id: str, store: Annotated[Store, Depends(get_store)]) -
                 people=story.people,
                 places=story.places,
                 quotes=[QuoteView(**q.__dict__) for q in story.quotes],
+                visibility=story.visibility,
+                consent_quote=story.consent_quote,
             )
             for story in store.stories_for_session(session_id)
         ],
         processing_error=session.processing_error,
     )
+
+
+@router.get("/family/{senior_id}")
+def read_family_view(senior_id: str, store: Annotated[Store, Depends(get_store)]) -> FamilyView:
+    """Only what the person agreed to share, grouped into chapters.
+
+    The filtering happens in the query, not in the caller, so there is no way to
+    reach this endpoint and accidentally receive a private story.
+    """
+    senior = store.get_senior(senior_id)
+    if senior is None:
+        raise HTTPException(status_code=404, detail=f"No senior {senior_id}")
+
+    shared = store.stories_for_senior(senior_id, shared_only=True)
+    everything = store.stories_for_senior(senior_id)
+
+    # Turn starts, per session, so a quote can be played rather than only read.
+    starts: dict[str, list[float]] = {}
+    for story in shared:
+        if story.session_id in starts:
+            continue
+        session = store.get(story.session_id)
+        turns = session.turns if session else []
+        starts[story.session_id] = [
+            turns[i - 1].started_at if i > 0 else 0.0 for i in range(len(turns))
+        ]
+
+    chapters = []
+    for stage in LIFE_STAGES:
+        in_stage = [s for s in shared if s.life_stage == stage]
+        if not in_stage:
+            continue
+        chapters.append(
+            FamilyChapter(
+                life_stage=stage,
+                stories=[
+                    FamilyStoryView(
+                        id=story.id,
+                        title=story.title,
+                        summary=story.summary,
+                        life_stage=story.life_stage,
+                        approx_period=story.approx_period,
+                        people=story.people,
+                        places=story.places,
+                        quotes=[
+                            FamilyQuoteView(
+                                text=quote.text,
+                                turn=quote.turn,
+                                session_id=story.session_id,
+                                seek_seconds=_seek(starts, story.session_id, quote.turn),
+                            )
+                            for quote in story.quotes
+                        ],
+                    )
+                    for story in in_stage
+                ],
+            )
+        )
+
+    return FamilyView(
+        senior=SeniorView(**senior.__dict__),
+        chapters=chapters,
+        withheld=len(everything) - len(shared),
+    )
+
+
+def _seek(starts: dict[str, list[float]], session_id: str, turn: int) -> float:
+    marks = starts.get(session_id, [])
+    return marks[turn] if 0 <= turn < len(marks) else 0.0
 
 
 @router.get("/sessions/{session_id}/audio")

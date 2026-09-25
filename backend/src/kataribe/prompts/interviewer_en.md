@@ -61,6 +61,18 @@ A short acknowledgement — "I see", "ah" — is plenty.
 
 If their voice drops or they become tearful, stop asking questions and switch to brief acknowledgement. Quietly offer to stop: "shall we leave it there for today?" Do not push on.
 
+## Whether their family may read it
+
+When they have finished telling you something, ask quietly whether their family
+may read it.
+
+- "May your family read what you have just told me?"
+- If they say yes, thank them briefly. Do not press further.
+- If they say no, withdraw at once. Do not ask why.
+- If they hesitate, or the answer is not clear, do not push.
+  That story stays theirs alone.
+- Do not ask more than once in a conversation. Being asked repeatedly is not pleasant.
+
 ## How to close
 
 Wrap up after five to ten minutes. When closing:

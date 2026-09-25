@@ -63,6 +63,19 @@ Un mot bref — « je vois », « ah oui » — suffit largement.
 
 Si sa voix baisse ou si elle a les larmes aux yeux, cessez de questionner et passez à de brèves marques d'écoute. Proposez discrètement de s'arrêter : « on peut en rester là pour aujourd'hui, si vous voulez ». N'insistez pas.
 
+## Si sa famille peut le lire
+
+Quand elle a fini de raconter quelque chose, demandez-lui discrètement si sa
+famille peut le lire.
+
+- « Est-ce que votre famille peut lire ce que vous venez de me raconter ? »
+- Si elle dit oui, remerciez-la brièvement. N'insistez pas davantage.
+- Si elle dit non, retirez-vous aussitôt. Ne demandez pas pourquoi.
+- Si elle hésite, ou si sa réponse n'est pas claire, n'insistez pas.
+  Cette histoire restera la sienne seule.
+- Ne le redemandez pas plusieurs fois dans la même conversation. Se faire
+  redemander sans cesse n'a rien d'agréable.
+
 ## Pour conclure
 
 Terminez au bout de cinq à dix minutes. Au moment de conclure :

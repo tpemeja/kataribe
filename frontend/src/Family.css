@@ -1,0 +1,118 @@
+/* The family page. Read by relatives rather than by whoever is tuning the
+   thing, so it is set for reading: narrower measure, larger type, no controls
+   competing for attention. */
+
+.family {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 3rem 1.25rem 5rem;
+}
+
+.family header {
+  display: block;
+  margin-bottom: 2.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.family h1 {
+  font-size: 2.25rem;
+  margin-bottom: 0.4rem;
+}
+
+.family .life {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.chapter {
+  margin-bottom: 3rem;
+}
+
+.chapter h2 {
+  margin: 0 0 1.25rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.told {
+  margin-bottom: 2.25rem;
+}
+
+.told h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.3rem;
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+.told h3 em {
+  flex: none;
+  font-style: normal;
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.told > p {
+  margin: 0 0 1rem;
+  font-size: 1.05rem;
+  line-height: 1.9;
+}
+
+.told blockquote {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin: 0 0 0.75rem;
+  padding: 0.9rem 1.1rem;
+  background: var(--panel);
+  border-left: 2px solid var(--accent);
+  border-radius: 0 0.4rem 0.4rem 0;
+  font-size: 1.05rem;
+  line-height: 1.9;
+}
+
+/* Her own voice, one tap away. The whole claim of the thing is that a passage
+   can be traced back to what she actually said. */
+.listen {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.listen:hover {
+  background: var(--accent);
+  color: #1a1206;
+}
+
+.told .tags {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.withheld {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.7;
+}

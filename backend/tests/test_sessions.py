@@ -9,6 +9,7 @@ from google.genai import types
 from kataribe.config import Settings, get_settings
 from kataribe.gemini import InterviewTuning, SessionCredentials, build_live_config
 from kataribe.main import create_app
+from kataribe.store import Quote, Store, Story, Turn
 
 
 def client_with(settings: Settings) -> TestClient:
@@ -147,3 +148,77 @@ def test_uploading_to_an_unknown_session_is_rejected(tmp_path: Path) -> None:
     )
 
     assert response.status_code == 404
+
+
+def story_for(store_dir: Path, *, visibility: str) -> tuple[TestClient, str, str]:
+    """A senior with one story at the given visibility, plus a session to play."""
+    store = Store(store_dir)
+    senior_id = store.add_senior(name="田中ハル", birth_year=1947, birthplace="長野")
+    session_id = store.start(
+        model="m",
+        voice="Sulafat",
+        silence_duration_ms=5000,
+        end_of_speech_sensitivity="LOW",
+        senior_id=senior_id,
+    )
+    store.finish(
+        session_id,
+        turns=[
+            Turn(speaker="ai", text="こんにちは。", started_at=2.0),
+            Turn(speaker="senior", text="長野で生まれました。", started_at=11.0),
+        ],
+        audio=None,
+        duration_seconds=12.0,
+        input_label="test",
+    )
+    store.replace_stories(
+        session_id,
+        senior_id,
+        [
+            Story(
+                id="story1",
+                senior_id=senior_id,
+                session_id=session_id,
+                title="生まれた村",
+                summary="長野で生まれた。",
+                life_stage="子供時代",
+                approx_period="",
+                people=[],
+                places=["長野"],
+                quotes=[Quote(text="長野で生まれました。", turn=1)],
+                visibility=visibility,
+            )
+        ],
+    )
+    return stored(store_dir), senior_id, session_id
+
+
+def test_the_family_sees_a_story_that_was_agreed(tmp_path: Path) -> None:
+    client, senior_id, _ = story_for(tmp_path, visibility="family")
+
+    view = client.get(f"/api/family/{senior_id}").json()
+
+    assert view["withheld"] == 0
+    assert [c["life_stage"] for c in view["chapters"]] == ["子供時代"]
+    assert view["chapters"][0]["stories"][0]["title"] == "生まれた村"
+
+
+def test_the_family_never_sees_a_story_that_was_not(tmp_path: Path) -> None:
+    client, senior_id, _ = story_for(tmp_path, visibility="private")
+
+    view = client.get(f"/api/family/{senior_id}").json()
+
+    assert view["chapters"] == []
+    assert view["withheld"] == 1
+    # Not even the title leaks through the count.
+    assert "生まれた村" not in json.dumps(view, ensure_ascii=False)
+
+
+def test_a_quote_carries_where_to_start_playing(tmp_path: Path) -> None:
+    client, senior_id, session_id = story_for(tmp_path, visibility="family")
+
+    quote = client.get(f"/api/family/{senior_id}").json()["chapters"][0]["stories"][0]["quotes"][0]
+
+    assert quote["session_id"] == session_id
+    # Turn 1 begins roughly where turn 0 ended.
+    assert quote["seek_seconds"] == 2.0

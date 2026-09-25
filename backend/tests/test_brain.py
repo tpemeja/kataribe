@@ -112,3 +112,59 @@ def test_context_stays_quiet_when_there_is_nothing_to_recall() -> None:
 
     assert "前回" not in context
     assert "触れてはいけない" not in context
+
+
+CONSENT_TURNS = [
+    Turn(speaker="senior", text="鹿児島の漁師町で生まれました。", started_at=1.0),
+    Turn(speaker="ai", text="ご家族にお伝えしてもよろしいですか。", started_at=9.0),
+    Turn(speaker="senior", text="ええ、かまいませんよ。", started_at=14.0),
+]
+
+
+def consented(quote: str) -> Extraction:
+    return Extraction(
+        stories=[
+            ExtractedStory(
+                title="生まれた町",
+                summary="鹿児島の漁師町で生まれた。",
+                life_stage="子供時代",
+                approx_period="",
+                people=[],
+                places=["鹿児島"],
+                quotes=[],
+                consent_quote=quote,
+            )
+        ],
+        refused_topics=[],
+    )
+
+
+def test_a_story_is_private_until_they_say_otherwise() -> None:
+    stories, _ = verify(consented(""), CONSENT_TURNS)
+
+    assert stories[0].visibility == "private"
+    assert not stories[0].shared
+
+
+def test_their_own_words_agreeing_make_it_shareable() -> None:
+    stories, dropped = verify(consented("ええ、かまいませんよ。"), CONSENT_TURNS)
+
+    assert stories[0].visibility == "family"
+    assert stories[0].consent_quote == "ええ、かまいませんよ。"
+    assert dropped == []
+
+
+def test_consent_the_model_reports_but_cannot_evidence_is_refused() -> None:
+    # The most dangerous failure here: a summary of agreement rather than the
+    # agreement itself. Sharing a life story is not something to infer.
+    stories, dropped = verify(consented("はい、どうぞお使いください。"), CONSENT_TURNS)
+
+    assert stories[0].visibility == "private"
+    assert stories[0].consent_quote == ""
+    assert dropped == ["(consent) はい、どうぞお使いください。"]
+
+
+def test_words_the_interviewer_said_cannot_grant_consent() -> None:
+    stories, _ = verify(consented("ご家族にお伝えしてもよろしいですか。"), CONSENT_TURNS)
+
+    assert stories[0].visibility == "private"

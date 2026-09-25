@@ -33,6 +33,13 @@ class ExtractedStory(BaseModel):
     people: list[str]
     places: list[str]
     quotes: list[ExtractedQuote]
+    consent_quote: str = Field(
+        default="",
+        description=(
+            "The speaker's own words agreeing their family may read this story, "
+            "exactly as said. Empty unless they clearly agreed."
+        ),
+    )
 
 
 class Extraction(BaseModel):
@@ -97,6 +104,11 @@ def extract(
             "- approx_period as far as the conversation shows it, and empty if\n"
             "  it does not.\n"
             "- If nothing has been told yet, leave stories empty.\n"
+            "- consent_quote: if they were asked whether their family may read\n"
+            "  this and clearly agreed, put their own words here, exactly as\n"
+            "  said. Leave it empty if they were not asked, if they declined, if\n"
+            "  they hesitated, or if the answer is at all unclear. A polite noise\n"
+            "  that is not an answer is not agreement.\n"
             "- refused_topics: anything they said they did not want to discuss."
         ),
         config=types.GenerateContentConfig(
@@ -130,6 +142,15 @@ def verify(extraction: Extraction, turns: list[Turn]) -> tuple[list[Story], list
                 kept.append(Quote(text=quote.text, turn=where))
 
         stage = extracted.life_stage if extracted.life_stage in LIFE_STAGES else LIFE_STAGES[0]
+
+        # Sharing a life story with a family is not something to infer. It
+        # counts only when the person said so and we still have the words: an
+        # agreement the model reports but cannot evidence is no agreement.
+        consent = NOISE.sub("", extracted.consent_quote)
+        agreed = bool(consent) and any(consent in said for said in spoken.values())
+        if extracted.consent_quote and not agreed:
+            dropped.append(f"(consent) {extracted.consent_quote}")
+
         stories.append(
             Story(
                 id=uuid.uuid4().hex[:12],
@@ -142,6 +163,8 @@ def verify(extraction: Extraction, turns: list[Turn]) -> tuple[list[Story], list
                 people=extracted.people,
                 places=extracted.places,
                 quotes=kept,
+                visibility="family" if agreed else "private",
+                consent_quote=extracted.consent_quote if agreed else "",
             )
         )
     return stories, dropped

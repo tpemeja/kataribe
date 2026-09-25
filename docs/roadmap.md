@@ -21,11 +21,23 @@ See [plan.md](plan.md) for the product thinking behind this.
 
 These have to be working on camera. Everything else is cut first if week 4 gets tight.
 
-- Presence detection auto-invite — the senior taps nothing
-- Per-story consent to share — the AI asks, the family view obeys
-- Cross-session memory — the AI opens by recalling last time and asking what it planned
+- ~~Presence detection auto-invite~~ — **cut**, see below
+- Per-story consent to share — the AI asks, the family view obeys ✅
+- Cross-session memory — the AI opens by recalling last time and asking what it planned ✅
 
-Audio-linked quotes are built but not a demo gate.
+### Why presence detection was cut
+
+It was a must-have from the first day and it no longer earns the place.
+
+Browser face detection impresses nobody; the technically interesting work here is the brain, not MediaPipe. It is also the worst thing to put in front of a camera — lighting, angle and distance decide whether the one moment that is meant to look effortless works on the take.
+
+And the plan's own risk table points elsewhere: the mitigation listed for *"seen as an AI companion"* is showing the family view and the call-her-and-ask-more moment. A judge watching a person talk to a device sees Cotomo. The family loop is what makes this not Cotomo, and that is slices 5 and 6.
+
+The Talk button stays, and presence becomes a line in the pitch: today a button, tomorrow the device notices her. Nobody will dispute that it is buildable — which is exactly why building it wins little.
+
+### Japanese validation is deferred, deliberately
+
+Everything stays testable in French so the work is not blocked on a Japanese speaker being free. The cost is real and worth naming: the interviewer prompt now carries changes nobody has judged in the language that ships, and the naturalness change made that worse rather than better — the warmer reactions it produces are close to the restatements rule 3 forbids. This is a debt with a due date.
 
 ## Slices
 
@@ -57,8 +69,8 @@ Prototype deadline **2026-10-18**. A real senior tests from week 2.
 - [~] **1 — It talks** — built; waiting on a live test with a Japanese speaker
 - [x] **2 — It remembers the session** — sessions, transcripts and audio stored and replayable
 - [x] **3 — It has a brain** — stories extracted and verified, timeline, gaps, next questions, context carried into the following session
-- [ ] 4 — It notices you
-- [ ] 5 — It asks permission
+- [~] 4 — It notices you — **cut from the hackathon**, see below
+- [x] **5 — It asks permission** — consent asked in conversation, evidenced by the person's own words; family view shows only shared stories, with audio
 - [ ] 6 — The family asks back
 - [ ] 7 — Ready to judge
 
@@ -191,6 +203,20 @@ So "it works in French" must never be read as "it works". The Japanese session w
 **Settings are per language** for the same reason. Each language keeps its own voice and pause length, and only the Japanese pause figure was measured against real speech — the others are starting guesses, and the console says so when one is selected. A value that feels right in a French test cannot become the one an elderly Japanese speaker gets.
 
 The extraction and planning instructions are written once, in English, and told which language to write in. Three translated copies would drift apart, and the rules they carry — do not invent, do not paraphrase inside a quotation — are the same in any language. The Japanese live tests were run before and after that change to confirm the Japanese behaviour did not move.
+
+## Consent is evidence, not inference
+
+A story reaches the family only when the person agreed and the agreement survives as their own words. Extraction is asked for the words they used to agree; `verify` then checks them against the transcript exactly as it checks quotes. No words, or words that are not in the transcript, and the story stays private. Stories are private by default, and a missing, declined, hesitant or unclear answer all leave them there.
+
+Measured against the real model, three runs each: a clear yes shared it, and a no, a hesitation (「うーん、そうですねえ……どうしましょうかねえ」) and never being asked all kept it private — 12 of 12.
+
+The family page is `/family/{senior_id}`. Filtering happens in the query, so there is no route by which a private story arrives and is merely not rendered; a browser test checks that not a word of one reaches the page. Private stories appear only as a count.
+
+There is deliberately no endpoint that writes stories. The browser tests seed the store through `backend/seed_story.py`, which uses the same code as the processing pipeline, rather than through a test-only route into the one part of the API whose job is to keep things out.
+
+Each quote has a play button. Word-level offsets are not returned by the model, so it seeks to where the previous turn ended — close to where she began speaking, not exact.
+
+**Not yet done:** the family page's chrome is in English, over Japanese content. For a Japanese family, and for the demo, the page should follow the person's language.
 
 ## The interviewer speaks first
 

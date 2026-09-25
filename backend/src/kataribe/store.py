@@ -61,6 +61,11 @@ CREATE TABLE IF NOT EXISTS plans (
 # Added after the first sessions were recorded, so they arrive by migration.
 LATER_COLUMNS = {
     "seniors": {"language": "TEXT NOT NULL DEFAULT 'ja'"},
+    # Private unless the person said otherwise, and said so in words we kept.
+    "stories": {
+        "visibility": "TEXT NOT NULL DEFAULT 'private'",
+        "consent_quote": "TEXT NOT NULL DEFAULT ''",
+    },
     "sessions": {
         "senior_id": "TEXT",
         "status": "TEXT NOT NULL DEFAULT 'recorded'",
@@ -96,6 +101,12 @@ class Story:
     people: list[str]
     places: list[str]
     quotes: list[Quote]
+    visibility: str = "private"
+    consent_quote: str = ""
+
+    @property
+    def shared(self) -> bool:
+        return self.visibility == "family"
 
 
 @dataclass(frozen=True)
@@ -290,8 +301,8 @@ class Store:
             db.execute("DELETE FROM stories WHERE session_id = ?", (session_id,))
             db.executemany(
                 "INSERT INTO stories (id, senior_id, session_id, title, summary, life_stage,"
-                " approx_period, people, places, quotes, created_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " approx_period, people, places, quotes, visibility, consent_quote, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [
                     (
                         story.id,
@@ -304,6 +315,8 @@ class Store:
                         json.dumps(story.people, ensure_ascii=False),
                         json.dumps(story.places, ensure_ascii=False),
                         json.dumps([q.__dict__ for q in story.quotes], ensure_ascii=False),
+                        story.visibility,
+                        story.consent_quote,
                         datetime.now(UTC).isoformat(),
                     )
                     for story in stories
@@ -317,10 +330,12 @@ class Store:
             ).fetchall()
         return [_to_story(row) for row in rows]
 
-    def stories_for_senior(self, senior_id: str) -> list[Story]:
+    def stories_for_senior(self, senior_id: str, shared_only: bool = False) -> list[Story]:
+        clause = " AND visibility = 'family'" if shared_only else ""
         with self._connect() as db:
             rows = db.execute(
-                "SELECT * FROM stories WHERE senior_id = ? ORDER BY created_at", (senior_id,)
+                f"SELECT * FROM stories WHERE senior_id = ?{clause} ORDER BY created_at",
+                (senior_id,),
             ).fetchall()
         return [_to_story(row) for row in rows]
 
@@ -374,6 +389,7 @@ def _to_session(row: sqlite3.Row) -> Session:
 
 
 def _to_story(row: sqlite3.Row) -> Story:
+    columns = row.keys()
     return Story(
         id=row["id"],
         senior_id=row["senior_id"],
@@ -385,6 +401,8 @@ def _to_story(row: sqlite3.Row) -> Story:
         people=json.loads(row["people"]),
         places=json.loads(row["places"]),
         quotes=[Quote(**q) for q in json.loads(row["quotes"])],
+        visibility=row["visibility"] if "visibility" in columns else "private",
+        consent_quote=row["consent_quote"] if "consent_quote" in columns else "",
     )
 
 
